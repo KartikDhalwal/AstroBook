@@ -205,14 +205,14 @@ export const colors = {
   pink3: '#ffa6c1',
   red1: '#ff5a5f',
   background1: '#fff',
-  background2: '#f8bd01',
+  background2: '#db9a4a',
   background3: '#bdd3ff',
   background4: '#F2805F',
   headerBackground: '#DCDCDC70',
   bookStatusBar: '#DCDCDC70',
-  astrobook1: '#f8bd01',
+  astrobook1: '#db9a4a',
   myBackground: '#fff0d4',
-  background_theme2: '#f8bd01'
+  background_theme2: '#db9a4a'
 };
 
 // ------------------ Fonts ------------------

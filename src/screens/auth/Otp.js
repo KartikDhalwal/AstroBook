@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MyStatusBar from '../../components/MyStatusbar';
@@ -19,11 +20,12 @@ import {
 import MyLoader from '../../components/MyLoader';
 import CountDown from './components/CountDown';
 import TranslateText from '../../language/TranslatedText';
-import GoogleIcon from '../../svgicons/GoogleIcon';
-import FacebookIcon from '../../svgicons/FacebookIcon';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
 import OrIcon from '../../svgicons/OrIcon';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config/Screen';
 import { responsiveScreenWidth } from 'react-native-responsive-dimensions';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { width } = Dimensions.get('screen');
 const CELL_COUNT = 4;
@@ -79,18 +81,29 @@ const Otp = (props) => {
 
   return (
     <View style={styles.container}>
+      {/* Watermark */}
+      <Image
+        source={require('../../assets/images/newLogo.png')}
+        style={styles.watermarkImage}
+      />
+
+
       <MyStatusBar backgroundColor={colors.book_status_bar} barStyle="dark-content" />
       <MyLoader isVisible={isLoading} />
 
       <View style={styles.innerContainer}>
         {/* Header */}
-        <View style={styles.otpHeader}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={{ fontSize: 20 }}>←</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Icon name="arrow-left" size={26} color="#db9a4a" />
           </TouchableOpacity>
-          <Text style={styles.verifyText}>
-            <TranslateText title="Verify Phone" />
+          <Text style={styles.title} numberOfLines={1}>
+            Verify Phone
           </Text>
+          <View style={{ width: 40 }} />
         </View>
 
         {/* OTP Input */}
@@ -145,27 +158,84 @@ const Otp = (props) => {
           <View style={styles.orIconContainer}>
             <OrIcon width={SCREEN_WIDTH * 0.9} />
           </View>
-
           {/* Social Login */}
           <View style={styles.googleView}>
             <TouchableOpacity style={styles.googleBtn}>
-              <GoogleIcon width={30} height={30} />
-              <Text style={styles.googleText}><TranslateText title="Google" /></Text>
+              <Ionicons name="call" color="#039ce3ff" size={24} />
+              <Text style={styles.googleText}><TranslateText title="TrueCaller" /></Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.googleBtn}>
-              <FacebookIcon width={30} height={30} />
-              <Text style={styles.googleText}><TranslateText title="Facebook" /></Text>
-            </TouchableOpacity>
+            {/* <TouchableOpacity style={styles.googleBtn}>
+            <FacebookIcon width={30} height={30} />
+            <Text style={styles.googleText}><TranslateText title="Facebook" /></Text>
+          </TouchableOpacity> */}
           </View>
         </View>
       </View>
     </View>
   );
+
 };
 
 export default Otp;
 
 const styles = StyleSheet.create({
+    header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF5E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2C1810',
+    flex: 1,
+    textAlign: 'center',
+  },
+  watermarkImage: {
+    position: 'absolute',
+    opacity: 0.08,
+    width: SCREEN_WIDTH * 0.8,
+    height: SCREEN_WIDTH * 0.8,
+    resizeMode: 'contain',
+    top: SCREEN_HEIGHT * 0.25,
+    left: SCREEN_WIDTH * 0.1,
+    zIndex: -1,
+  },
+  codeFieldContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  codeFieldRoot: {
+    justifyContent: 'space-between',
+  },
+  cell: {
+    width: 50,
+    height: 50,
+    lineHeight: 48,
+    fontSize: 20,
+    textAlign: 'center',
+    borderWidth: 2, // ✅ Make border bold
+    borderColor: '#000', // You can change color as needed
+    borderRadius: 8,
+    marginHorizontal: 5,
+    color: '#000',
+  },
+  focusCell: {
+    borderColor: '#f8bd01', // Highlight border when focused
+    borderWidth: 3, // ✅ Even bolder when focused
+  },
+
   container: { flex: 1, backgroundColor: colors.background_theme1 },
   innerContainer: { flex: 1 },
   otpHeader: {
@@ -179,22 +249,6 @@ const styles = StyleSheet.create({
   otpContainer: { paddingTop: SCREEN_HEIGHT * 0.2 },
   otpText: { ...Fonts.black11InterMedium, fontSize: 14, textAlign: 'center' },
   phoneText: { color: '#381415' },
-  codeFieldContainer: { paddingHorizontal: 30 },
-  codeFieldRoot: { marginTop: 20 },
-  cell: {
-    width: width * 0.15,
-    height: width * 0.14,
-    lineHeight: 32,
-    fontSize: 19,
-    borderWidth: 0.27,
-    borderRadius: 5,
-    borderColor: '#f8bd01',
-    textAlign: 'center',
-    paddingTop: 5,
-    marginTop: 10,
-    color: '#000',
-  },
-  focusCell: { borderColor: colors.background_theme4 },
   otpFooterRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: SCREEN_HEIGHT * 0.1 },
   otpText2: { ...Fonts.black11InterMedium, fontSize: 13, marginRight: 3 },
   resendTimer: { color: '#611D09' },

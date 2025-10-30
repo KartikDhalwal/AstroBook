@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import HomeScreen from '../screens/HomeScreen';
-import VoiceCall from '../screens/Voicecall';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+import HomeScreen from '../screens/HomeScreen';
+import AstrolgersList from '../screens/AstrolgersList';
+import PoojaList from '../screens/PoojaList';
 
 const BottomTabs = () => {
-  const [activeTab, setActiveTab] = useState('Home');
+  const [activeTab, setActiveTab] = useState('VideoCall');
 
   const renderScreen = () => {
     switch (activeTab) {
       case 'Home':
         return <HomeScreen />;
       case 'VoiceCall':
-        return <VoiceCall />;
+        return <AstrolgersList mode="voice" />;
       case 'VideoCall':
-        return <VoiceCall />;
+        return <AstrolgersList mode="video" />;
+      case 'LiveChat':
+        return <AstrolgersList mode="chat" />;
+      case 'PoojaList':
+        return <PoojaList />;
       default:
         return <HomeScreen />;
     }
@@ -24,47 +31,57 @@ const BottomTabs = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>{renderScreen()}</View>
 
-      {/* Custom Bottom Tab Bar */}
+      {/* Bottom Navigation Bar */}
       <View style={styles.tabBar}>
         <TabButton
           label="Home"
-          icon="🏠"
+          icon="home-outline"
+          activeIcon="home"
           isActive={activeTab === 'Home'}
           onPress={() => setActiveTab('Home')}
         />
         <TabButton
           label="Voice Call"
-          icon="📞"
+          icon="call-outline"
+          activeIcon="call"
           isActive={activeTab === 'VoiceCall'}
           onPress={() => setActiveTab('VoiceCall')}
         />
         <TabButton
           label="Video Call"
-          icon="🎥"
+          icon="videocam-outline"
+          activeIcon="videocam"
           isActive={activeTab === 'VideoCall'}
           onPress={() => setActiveTab('VideoCall')}
         />
         <TabButton
-          label="Get Report"
-          icon="📝"
-          isActive={activeTab === 'Home'}
-          onPress={() => setActiveTab('Home')}
+          label="Live Chat"
+          icon="chatbubble-outline"
+          activeIcon="chatbubble"
+          isActive={activeTab === 'LiveChat'}
+          onPress={() => setActiveTab('LiveChat')}
         />
         <TabButton
           label="Book Pooja"
-          icon="🙏"
-          isActive={activeTab === 'Call'}
-          onPress={() => setActiveTab('Call')}
+          icon="color-wand-outline"
+          activeIcon="color-wand"
+          isActive={activeTab === 'PoojaList'}
+          onPress={() => setActiveTab('PoojaList')}
         />
       </View>
     </SafeAreaView>
   );
 };
 
-const TabButton = ({ label, icon, isActive, onPress }) => {
+const TabButton = ({ label, icon, activeIcon, isActive, onPress }) => {
   return (
-    <TouchableOpacity style={styles.tabButton} onPress={onPress}>
-      <Text style={[styles.icon, isActive && styles.activeIcon]}>{icon}</Text>
+    <TouchableOpacity style={styles.tabButton} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons
+        name={isActive ? activeIcon : icon}
+        size={26}
+        color={isActive ? '#000' : '#888'}
+        style={{ marginBottom: 2 }}
+      />
       <Text style={[styles.label, isActive && styles.activeLabel]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -80,32 +97,32 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    height: 60,
+    height: 65,
     borderTopWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
-    justifyContent: 'space-around',
+    borderColor: '#e5e5e5',
+    backgroundColor: '#fafafa',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   tabButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 22,
-    color: '#777',
+    paddingVertical: 4,
   },
   label: {
-    fontSize: 12,
-    color: '#777',
+    fontSize: 11,
+    color: '#888',
     marginTop: 2,
-  },
-  activeIcon: {
-    color: '#000',
   },
   activeLabel: {
     color: '#000',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });
 

@@ -17,7 +17,7 @@ const SplashScreen = ({ navigation }) => {
     <View style={styles.container}>
       <MyStatusBar backgroundColor={colors.background_theme2} barStyle="dark-content" />
       <Image
-        source={require('../assets/astrobookimages/onboardingscreen.png')}
+        source={require('../assets/astrobookimages/onboardingscreenNew.jpeg')}
         style={styles.splashImage}
       />
     </View>
