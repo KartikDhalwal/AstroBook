@@ -15,8 +15,11 @@ import api from '../apiConfig';
 import MyLoader from '../components/MyLoader';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const AstrolgersList = ({ mode }) => {
+const AstrolgersList = ({ route, mode: propMode }) => {
+  const { mode: routeMode } = route?.params || {};
+  const mode = routeMode || propMode;
   const [isLoading, setIsLoading] = useState(false);
   const [astrologers, setAstrologers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,9 +84,9 @@ const AstrolgersList = ({ mode }) => {
       setIsLoading(false);
     }
   };
-
+  const Container = routeMode ? SafeAreaView : View ;
   return (
-    <View style={styles.container}>
+    <Container style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
       <MyLoader isVisible={isLoading} />
 
@@ -208,7 +211,7 @@ const AstrolgersList = ({ mode }) => {
 
         <View style={{ height: 30 }} />
       </ScrollView>
-    </View>
+    </Container>
   );
 };
 
@@ -255,13 +258,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   actionButtonChat: {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: '#db9a4a', // Blue for chat
-  alignItems: 'center',
-  justifyContent: 'center',
-},
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#db9a4a', // Blue for chat
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   backButton: {
     width: 40,
@@ -356,7 +359,7 @@ const styles = StyleSheet.create({
   astrologerRight: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop:15
+    paddingTop: 15
   },
   actionButtonVoice: {
     width: 44,

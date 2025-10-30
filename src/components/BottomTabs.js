@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import HomeScreen from '../screens/HomeScreen';
+import AstroTalkHome from '../screens/HomeScreen';
 import AstrolgersList from '../screens/AstrolgersList';
 import PoojaList from '../screens/PoojaList';
 
@@ -13,7 +13,7 @@ const BottomTabs = () => {
   const renderScreen = () => {
     switch (activeTab) {
       case 'Home':
-        return <HomeScreen />;
+        return <AstroTalkHome />;
       case 'VoiceCall':
         return <AstrolgersList mode="voice" />;
       case 'VideoCall':
@@ -23,7 +23,7 @@ const BottomTabs = () => {
       case 'PoojaList':
         return <PoojaList />;
       default:
-        return <HomeScreen />;
+        return <AstroTalkHome />;
     }
   };
 
