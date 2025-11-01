@@ -24,7 +24,8 @@ import api from '../apiConfig';
 
 const { width } = Dimensions.get('screen');
 
-const SignUp = ({ navigation }) => {
+const SignUp = ({ navigation, route }) => {
+  const { customer, phoneNumber1 } = route.params || {};
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [gender, setGender] = useState('');
@@ -63,80 +64,84 @@ const SignUp = ({ navigation }) => {
   };
 
   /** 🚀 Submit to Backend */
-const handleSubmit = async () => {
-  if (!customerName.trim()) {
-    return Alert.alert('Error', 'Please enter your name.');
-  }
-  if (!phoneNumber.trim()) {
-    return Alert.alert('Error', 'Please enter your mobile number.');
-  }
-  if (!/^\d{10}$/.test(phoneNumber.trim())) {
-    return Alert.alert('Error', 'Please enter a valid 10-digit mobile number.');
-  }
-  if (!gender.trim()) {
-    return Alert.alert('Error', 'Please select your gender.');
-  }
-  if (!dateOfBirth) {
-    return Alert.alert('Error', 'Please select your date of birth.');
-  }
-  if (!timeOfBirth) {
-    return Alert.alert('Error', 'Please select your time of birth.');
-  }
-  if (!profileImage) {
-    return Alert.alert('Error', 'Please upload a profile image.');
-  }
+  const handleSubmit = async () => {
+    if (!customerName.trim()) {
+      return Alert.alert('Error', 'Please enter your name.');
+    }
+    if (!phoneNumber.trim()) {
+      return Alert.alert('Error', 'Please enter your mobile number.');
+    }
+    if (!/^\d{10}$/.test(phoneNumber.trim())) {
+      return Alert.alert('Error', 'Please enter a valid 10-digit mobile number.');
+    }
+    if (!gender.trim()) {
+      return Alert.alert('Error', 'Please select your gender.');
+    }
+    if (!dateOfBirth) {
+      return Alert.alert('Error', 'Please select your date of birth.');
+    }
+    if (!timeOfBirth) {
+      return Alert.alert('Error', 'Please select your time of birth.');
+    }
+    if (!profileImage) {
+      return Alert.alert('Error', 'Please upload a profile image.');
+    }
 
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
+      console.log({ customer })
+      const formData = new FormData();
+      formData.append('customerId', customer._id);
+      formData.append('customerName', customerName.trim());
+      formData.append('phoneNumber', phoneNumber.trim());
+      formData.append('gender', gender.trim());
+      formData.append('dateOfBirth', moment(dateOfBirth).format('YYYY-MM-DD'));
+      formData.append('timeOfBirth', moment(timeOfBirth).format('HH:mm:ss'));
 
-    const formData = new FormData();
-    formData.append('customerName', customerName.trim());
-    formData.append('phoneNumber', phoneNumber.trim());
-    formData.append('gender', gender.trim());
-    formData.append('dateOfBirth', moment(dateOfBirth).format('YYYY-MM-DD'));
-    formData.append('timeOfBirth', moment(timeOfBirth).format('HH:mm:ss'));
+      // Attach image file as expected by backend multer
+      formData.append('image', {
+        uri:
+          Platform.OS === 'android'
+            ? profileImage.uri
+            : profileImage.uri.replace('file://', ''),
+        name: profileImage.fileName || 'photo.jpg',
+        type: profileImage.type || 'image/jpeg',
+      });
 
-    // Attach image file as expected by backend multer
-    formData.append('image', {
-      uri:
-        Platform.OS === 'android'
-          ? profileImage.uri
-          : profileImage.uri.replace('file://', ''),
-      name: profileImage.fileName || 'photo.jpg',
-      type: profileImage.type || 'image/jpeg',
-    });
+      console.log('Submitting signup form to:', `${api}/customers/update-customer-details`);
 
-    console.log('Submitting signup form to:', `${api}/customers/customeer-signup`);
+      const response = await axios.post(
+        `${api}/customers/update-customer-details`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
 
-    const response = await axios.post(
-      `${api}/customers/customer-signup`,
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      console.log('Signup response:', response.data);
+
+      const resData = response.data;
+      if (resData.success) {
+        Alert.alert('Success', resData.message);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        })
+    } else {
+        Alert.alert('Error', resData.message || 'Something went wrong');
       }
-    );
-
-    console.log('Signup response:', response.data);
-
-    const resData = response.data;
-    if (resData.success) {
-      Alert.alert('Success', resData.message);
-      navigation.navigate('Home');
-    } else {
-      Alert.alert('Error', resData.message || 'Something went wrong');
+    } catch (error) {
+      console.error('Signup error:', error);
+      if (error.response) {
+        console.log('Error Response:', error.response.data);
+        Alert.alert('Error', error.response.data.message || 'Signup failed.');
+      } else {
+        Alert.alert('Error', 'Network or server issue. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Signup error:', error);
-    if (error.response) {
-      console.log('Error Response:', error.response.data);
-      Alert.alert('Error', error.response.data.message || 'Signup failed.');
-    } else {
-      Alert.alert('Error', 'Network or server issue. Please try again.');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
 
   return (

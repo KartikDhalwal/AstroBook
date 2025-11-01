@@ -4,14 +4,32 @@ import MyStatusBar from '../components/MyStatusbar';
 import { colors } from '../config/Constants1';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../config/Screen';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SplashScreen = ({ navigation }) => {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('Login'); // Navigate to Login after 2 seconds
-    }, 2000);
+    const checkLoginStatus = async () => {
+      try {
+        const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
+        const customerData = await AsyncStorage.getItem('customerData');
 
-    return () => clearTimeout(timer);
+        if (isLoggedIn === 'true' && customerData) {
+          // ✅ User is already logged in
+          navigation.replace('Home');
+        } else {
+          // ⏰ Wait 2 seconds before going to Login
+          setTimeout(() => {
+            navigation.replace('Login');
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Error checking login status:', error);
+        // fallback to login
+        navigation.replace('Login');
+      }
+    };
+
+    checkLoginStatus();
   }, [navigation]);
 
   return (

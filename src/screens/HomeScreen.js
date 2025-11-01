@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useRef } from 'react';
 import {
@@ -19,7 +20,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { width, height } = Dimensions.get('screen');
 
-const AstroTalkHome = ({  customerData: propCustomerData }) => {
+const AstroTalkHome = ({ customerData: propCustomerData }) => {
   const navigation = useNavigation();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [customerData, setCustomerData] = useState(
@@ -67,18 +68,24 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Do you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes',
-        style: 'destructive',
-        onPress: () => {
-          Alert.alert('Logged out', 'You are logged out successfully.');
-        },
+ const handleLogout = () => {
+  Alert.alert('Logout', 'Do you want to logout?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Yes',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          await AsyncStorage.removeItem('customerData');
+          await AsyncStorage.removeItem('isLoggedIn');
+          navigation.replace('Login');
+        } catch (error) {
+          console.error('Error during logout:', error);
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   const handleNavigation = (item) => {
     const { title } = item;
@@ -109,31 +116,31 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
 
       {/* Header */}
       <View style={styles.header}>
-  <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-    <View style={styles.menuLine} />
-    <View style={styles.menuLine} />
-    <View style={styles.menuLine} />
-  </TouchableOpacity>
+        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+        </TouchableOpacity>
 
-  <View style={styles.headerCenter}>
-    {/* ✅ Logo added here */}
-    
-    <View>
-      <Text style={styles.headerTitle}>AstroBook</Text>
-      <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
-    </View>
-    <Image
-      source={require('../assets/images/logoBlack.png')}
-      style={styles.headerLogo}
-      resizeMode="contain"
-    />
-  </View>
+        <View style={styles.headerCenter}>
+          {/* ✅ Logo added here */}
 
-  <TouchableOpacity style={styles.notificationButton}>
-    <Icon name="bell-outline" size={24} color="black" />
-    <View style={styles.notificationBadge} />
-  </TouchableOpacity>
-</View>
+          <View>
+            <Text style={styles.headerTitle}>AstroBook</Text>
+            <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
+          </View>
+          <Image
+            source={require('../assets/images/logoBlack.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
+
+        <TouchableOpacity style={styles.notificationButton}>
+          <Icon name="bell-outline" size={24} color="black" />
+          <View style={styles.notificationBadge} />
+        </TouchableOpacity>
+      </View>
 
 
       {/* Scroll Content */}
@@ -226,7 +233,7 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.servicesScroll}>
             <TouchableOpacity
               style={styles.serviceCardEnhanced}
-              // onPress={() => navigation.navigate('ShowHoroscope')}
+            // onPress={() => navigation.navigate('ShowHoroscope')}
             >
               <View style={styles.serviceIconContainer}>
                 <Icon name="crystal-ball" size={28} color="#db9a4a" />
@@ -238,99 +245,99 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
               </View>
             </TouchableOpacity>
 
-              <TouchableOpacity style={styles.serviceCardEnhanced}>
-                <View style={styles.serviceIconContainer}>
-                  <Icon name={'heart-outline'} size={28} color="#db9a4a" />
-                </View>
-                <Text style={styles.serviceTitle}>Kundli Matching</Text>
-                <Text style={styles.serviceDescription}>Marriage compatibility</Text>
-                <View style={styles.serviceBadge}>
-                  <Text style={styles.serviceBadgeText}>FREE</Text>
-                </View>
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.serviceCardEnhanced}>
+              <View style={styles.serviceIconContainer}>
+                <Icon name={'heart-outline'} size={28} color="#db9a4a" />
+              </View>
+              <Text style={styles.serviceTitle}>Kundli Matching</Text>
+              <Text style={styles.serviceDescription}>Marriage compatibility</Text>
+              <View style={styles.serviceBadge}>
+                <Text style={styles.serviceBadgeText}>FREE</Text>
+              </View>
+            </TouchableOpacity>
 
-              <TouchableOpacity style={styles.serviceCardEnhanced}>
-                <View style={styles.serviceIconContainer}>
-                  <Icon name={'account-star-outline'} size={28} color="#db9a4a" />
-                </View>
-                <Text style={styles.serviceTitle}>Free Kundli</Text>
-                <Text style={styles.serviceDescription}>Birth chart analysis</Text>
-                <View style={styles.serviceBadge}>
-                  <Text style={styles.serviceBadgeText}>FREE</Text>
-                </View>
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.serviceCardEnhanced}>
+              <View style={styles.serviceIconContainer}>
+                <Icon name={'account-star-outline'} size={28} color="#db9a4a" />
+              </View>
+              <Text style={styles.serviceTitle}>Free Kundli</Text>
+              <Text style={styles.serviceDescription}>Birth chart analysis</Text>
+              <View style={styles.serviceBadge}>
+                <Text style={styles.serviceBadgeText}>FREE</Text>
+              </View>
+            </TouchableOpacity>
 
-              <TouchableOpacity style={styles.serviceCardEnhanced}>
-                <View style={styles.serviceIconContainer}>
-                  <Icon name={'cards-outline'} size={28} color="#db9a4a" />
-                </View>
-                <Text style={styles.serviceTitle}>Tarot Reading</Text>
-                <Text style={styles.serviceDescription}>Card predictions</Text>
-                <View style={styles.serviceBadge}>
-                  <Text style={styles.serviceBadgeText}>FREE</Text>
-                </View>
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.serviceCardEnhanced}>
+              <View style={styles.serviceIconContainer}>
+                <Icon name={'cards-outline'} size={28} color="#db9a4a" />
+              </View>
+              <Text style={styles.serviceTitle}>Tarot Reading</Text>
+              <Text style={styles.serviceDescription}>Card predictions</Text>
+              <View style={styles.serviceBadge}>
+                <Text style={styles.serviceBadgeText}>FREE</Text>
+              </View>
+            </TouchableOpacity>
           </ScrollView>
         </View>
 
-          {/* Special Offerings */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Special Offerings</Text>
+        {/* Special Offerings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Special Offerings</Text>
 
-            <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList')}>
-              <View style={styles.specialLeft}>
-                <Icon name="hand-heart" size={36} color="#db9a4a" />
+          <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList')}>
+            <View style={styles.specialLeft}>
+              <Icon name="hand-heart" size={36} color="#db9a4a" />
+            </View>
+            <View style={styles.specialMiddle}>
+              <Text style={styles.specialTitle}>Book a Pooja</Text>
+              <Text style={styles.specialDescription}>Personalized rituals for prosperity</Text>
+              <View style={styles.specialRating}>
+                <Text style={styles.specialRatingText}>⭐ 4.9 • 2K+ bookings</Text>
               </View>
-              <View style={styles.specialMiddle}>
-                <Text style={styles.specialTitle}>Book a Pooja</Text>
-                <Text style={styles.specialDescription}>Personalized rituals for prosperity</Text>
-                <View style={styles.specialRating}>
-                  <Text style={styles.specialRatingText}>⭐ 4.9 • 2K+ bookings</Text>
-                </View>
-              </View>
-              <View style={styles.specialRight}>
-                <Icon name="arrow-right" size={24} color="#db9a4a" />
-              </View>
-            </TouchableOpacity>
+            </View>
+            <View style={styles.specialRight}>
+              <Icon name="arrow-right" size={24} color="#db9a4a" />
+            </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity style={styles.specialCard}>
-              <View style={styles.specialLeft}>
-                <Icon name="om" size={36} color="#db9a4a" />
+          <TouchableOpacity style={styles.specialCard}>
+            <View style={styles.specialLeft}>
+              <Icon name="om" size={36} color="#db9a4a" />
+            </View>
+            <View style={styles.specialMiddle}>
+              <Text style={styles.specialTitle}>Astro Remedies</Text>
+              <Text style={styles.specialDescription}>Gemstones & spiritual solutions</Text>
+              <View style={styles.specialRating}>
+                <Text style={styles.specialRatingText}>⭐ 4.8 • Verified products</Text>
               </View>
-              <View style={styles.specialMiddle}>
-                <Text style={styles.specialTitle}>Astro Remedies</Text>
-                <Text style={styles.specialDescription}>Gemstones & spiritual solutions</Text>
-                <View style={styles.specialRating}>
-                  <Text style={styles.specialRatingText}>⭐ 4.8 • Verified products</Text>
-                </View>
-              </View>
-              <View style={styles.specialRight}>
-                <Icon name="arrow-right" size={24} color="#db9a4a" />
-              </View>
-            </TouchableOpacity>
-          </View>
+            </View>
+            <View style={styles.specialRight}>
+              <Icon name="arrow-right" size={24} color="#db9a4a" />
+            </View>
+          </TouchableOpacity>
+        </View>
 
-          {/* Testimonial Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What Our Users Say</Text>
-            <View style={styles.testimonialCard}>
-              <View style={styles.quoteIcon}>
-                <Text style={styles.quoteText}>"</Text>
+        {/* Testimonial Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>What Our Users Say</Text>
+          <View style={styles.testimonialCard}>
+            <View style={styles.quoteIcon}>
+              <Text style={styles.quoteText}>"</Text>
+            </View>
+            <Text style={styles.testimonialText}>
+              The predictions were incredibly accurate! The astrologer understood my concerns and provided practical solutions.
+            </Text>
+            <View style={styles.testimonialFooter}>
+              <View style={styles.testimonialAvatar}>
+                <Text style={styles.testimonialAvatarText}>RS</Text>
               </View>
-              <Text style={styles.testimonialText}>
-                The predictions were incredibly accurate! The astrologer understood my concerns and provided practical solutions.
-              </Text>
-              <View style={styles.testimonialFooter}>
-                <View style={styles.testimonialAvatar}>
-                  <Text style={styles.testimonialAvatarText}>RS</Text>
-                </View>
-                <View>
-                  <Text style={styles.testimonialName}>Rajesh Sharma</Text>
-                  <Text style={styles.testimonialRating}>⭐⭐⭐⭐⭐</Text>
-                </View>
+              <View>
+                <Text style={styles.testimonialName}>Rajesh Sharma</Text>
+                <Text style={styles.testimonialRating}>⭐⭐⭐⭐⭐</Text>
               </View>
             </View>
           </View>
+        </View>
 
         {/* Bottom Spacing */}
         <View style={{ height: 30 }} />
@@ -429,66 +436,66 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EF',
   },
   header: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 15,
-  paddingVertical: 10,
-  backgroundColor: '#fff',
-  elevation: 3,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    elevation: 3,
+  },
 
-menuButton: {
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: 8,
-},
+  menuButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
 
-menuLine: {
-  width: 22,
-  height: 2,
-  backgroundColor: '#000',
-  marginVertical: 2,
-  borderRadius: 1,
-},
+  menuLine: {
+    width: 22,
+    height: 2,
+    backgroundColor: '#000',
+    marginVertical: 2,
+    borderRadius: 1,
+  },
 
-headerCenter: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 8, // for spacing between logo and text
-},
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8, // for spacing between logo and text
+  },
 
-headerLogo: {
-  width: 60,
-  height: 60,
-},
+  headerLogo: {
+    width: 60,
+    height: 60,
+  },
 
-headerTitle: {
-  fontSize: 18,
-  fontWeight: '700',
-  color: '#2C1810',
-},
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
 
-headerSubtitle: {
-  fontSize: 12,
-  color: '#9C7A56',
-  marginTop: -2,
-},
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#9C7A56',
+    marginTop: -2,
+  },
 
-notificationButton: {
-  padding: 8,
-  position: 'relative',
-},
+  notificationButton: {
+    padding: 8,
+    position: 'relative',
+  },
 
-notificationBadge: {
-  position: 'absolute',
-  right: 6,
-  top: 6,
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: 'red',
-},
+  notificationBadge: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'red',
+  },
 
 
   notificationIcon: {

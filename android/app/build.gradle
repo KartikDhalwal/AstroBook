@@ -80,7 +80,7 @@ android {
 
     namespace "com.acharyalavbhushan"
     defaultConfig {
-        applicationId "com.acharyalavbhushan"
+        applicationId "com.ksbm.abastrologer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -111,6 +111,8 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+implementation platform('com.google.firebase:firebase-bom:33.4.0')
+implementation 'com.google.firebase:firebase-analytics'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -118,3 +120,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'
+

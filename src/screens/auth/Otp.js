@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MyStatusBar from '../../components/MyStatusbar';
@@ -21,18 +22,22 @@ import MyLoader from '../../components/MyLoader';
 import CountDown from './components/CountDown';
 import TranslateText from '../../language/TranslatedText';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-
 import OrIcon from '../../svgicons/OrIcon';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config/Screen';
 import { responsiveScreenWidth } from 'react-native-responsive-dimensions';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getFcmTokenAstro } from '../../utils/servicesastrobook';
+import axios from 'axios';
+import DeviceInfo from 'react-native-device-info'; // ✅ For device_id
+import api from '../../apiConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('screen');
 const CELL_COUNT = 4;
 
 const Otp = (props) => {
   const navigation = useNavigation();
-  const { phoneNumber, newCustomer } = props.route.params;
+  const { phoneNumber, callingCode, newCustomer } = props.route.params;
 
   const [isLoading, setIsLoading] = useState(false);
   const [value, setValue] = useState('');
@@ -44,34 +49,106 @@ const Otp = (props) => {
     props.navigation.setOptions({ headerShown: false });
   }, [props.navigation]);
 
-  // Auto verify when OTP is complete
   useEffect(() => {
     if (value.length === CELL_COUNT) handleOtpVerification();
   }, [value]);
 
   const handleOtpVerification = async () => {
+    if (!value || value.length < 4) {
+      Alert.alert('Warning', 'Please enter the 4-digit OTP.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Replace this with your API call
-      if(newCustomer){
-        Alert.alert('Success', 'Please Fill Details!');
-        navigation.replace('SignUp');
+      const fcmToken = await getFcmTokenAstro();
+      const device_id = DeviceInfo.getUniqueIdSync?.() || 'unknown-device';
+
+      const payload = {
+        phoneNumber,
+        fcmToken,
+        device_id,
+        otp: value,
+      };
+
+      console.log('Verifying customer with payload:', payload);
+
+      const response = await axios.post(
+        `${api}/customers/verify-customer`,
+        payload
+      );
+
+      const res = response.data;
+      console.log('Response:', res);
+
+      if (res.success) {
+        await AsyncStorage.setItem('customerData', JSON.stringify(res.customer));
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        if (
+          res?.customer.customerName === '' ||
+          res?.customer.phoneNumber === '' ||
+          res?.customer.gender === '' ||
+          res?.customer.dateOfBirth === '' ||
+          res?.customer.timeOfBirth === ''
+        ) {
+          Alert.alert('Success', 'Please fill your details!', [
+            {
+              text: 'OK',
+              onPress: () =>
+                navigation.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: 'SignUp',
+                      params: { phoneNumber, customer: res.customer },
+                    },
+                  ],
+                }),
+            },
+          ]);
+        } else {
+          Alert.alert('Success', 'Login Successful!', [
+            {
+              text: 'OK',
+              onPress: () =>
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Home' }],
+                }),
+            },
+          ]);
+        }
+      } else {
+        Alert.alert('Error', res.message || 'Verification failed.');
       }
-      else{ navigation.replace('Home');}
     } catch (error) {
-      console.error(error);
+      console.error('OTP Verification Error:', error);
       Alert.alert('Error', 'Unable to verify OTP. Please try again later.');
     } finally {
       setIsLoading(false);
     }
   };
 
+
   const resendOtp = async () => {
     setCounter(60);
     setIsLoading(true);
     try {
-      // Replace this with your resend API call
-      Alert.alert('Success', 'OTP resent successfully!');
+      const response = await axios.post(`${api}/customers/customer-login`, {
+        phoneNumber,
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = response.data;
+      console.log('Login Response:', data);
+
+      if (data.success === true) {
+        Alert.alert('Success', data.message || 'OTP sent successfully!');
+      } else {
+        Alert.alert('Login Failed', data.message || 'Something went wrong.');
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Unable to resend OTP.');
@@ -84,12 +161,10 @@ const Otp = (props) => {
 
   return (
     <View style={styles.container}>
-      {/* Watermark */}
       <Image
         source={require('../../assets/images/logoBlack.png')}
         style={styles.watermarkImage}
       />
-
 
       <MyStatusBar backgroundColor={colors.book_status_bar} barStyle="dark-content" />
       <MyLoader isVisible={isLoading} />
@@ -97,19 +172,14 @@ const Otp = (props) => {
       <View style={styles.innerContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-left" size={26} color="#db9a4a" />
           </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
-            Verify Phone
-          </Text>
+          <Text style={styles.title}>Verify Phone</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        {/* OTP Input */}
+        {/* OTP Section */}
         <View style={styles.otpContainer}>
           <Text style={styles.otpText}>
             <TranslateText title="OTP Sent to" />{' '}
@@ -161,28 +231,25 @@ const Otp = (props) => {
           <View style={styles.orIconContainer}>
             <OrIcon width={SCREEN_WIDTH * 0.9} />
           </View>
+
           {/* Social Login */}
           <View style={styles.googleView}>
             <TouchableOpacity style={styles.googleBtn}>
               <Ionicons name="call" color="#039ce3ff" size={24} />
               <Text style={styles.googleText}><TranslateText title="TrueCaller" /></Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity style={styles.googleBtn}>
-            <FacebookIcon width={30} height={30} />
-            <Text style={styles.googleText}><TranslateText title="Facebook" /></Text>
-          </TouchableOpacity> */}
           </View>
         </View>
       </View>
     </View>
   );
-
 };
 
 export default Otp;
 
+
 const styles = StyleSheet.create({
-    header: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -205,16 +272,16 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
- watermarkImage: {
-  position: 'absolute',
-  opacity: 0.05,
-  width: SCREEN_WIDTH * 1.5, // fills entire width
-  height: SCREEN_HEIGHT * 1.0, // fills height
-  resizeMode: 'contain',
-  top: SCREEN_HEIGHT * 0.1,
-  left: -SCREEN_WIDTH * 0.25,
-  zIndex: -1,
-},
+  watermarkImage: {
+    position: 'absolute',
+    opacity: 0.05,
+    width: SCREEN_WIDTH * 1.5, // fills entire width
+    height: SCREEN_HEIGHT * 1.0, // fills height
+    resizeMode: 'contain',
+    top: SCREEN_HEIGHT * 0.1,
+    left: -SCREEN_WIDTH * 0.25,
+    zIndex: -1,
+  },
 
 
 

@@ -61,11 +61,10 @@ export const getFcmTokenAstro = async () => {
       return fcmToken || 'default-token-ios';
 
     } else {
-      // Android
-      await messaging().registerDeviceForRemoteMessages();
-      const fcmToken = await messaging().getToken();
-      console.log('FCM Token (Android):', fcmToken);
-      return fcmToken || 'default-token-android';
+    await messaging().registerDeviceForRemoteMessages();
+    const token = await messaging().getToken();
+    console.log('✅ FCM Token:', token);
+    return token;
     }
   } catch (e) {
     console.error('Error fetching FCM token:', e);
