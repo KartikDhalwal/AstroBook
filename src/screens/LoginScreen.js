@@ -41,9 +41,9 @@ const LoginScreen = (props) => {
 
     setIsLoading(true);
     try {
-      if (phoneNumber == '9828719021') {
-        props.navigation.navigate('Otp', { phoneNumber, callingCode });
-      }
+      // if (phoneNumber == '9828719021') {
+      //   props.navigation.navigate('Otp', { phoneNumber, callingCode });
+      // }
       const response = await axios.post(`${api}/customers/customer-login`, {
         phoneNumber,
       }, {
@@ -55,7 +55,7 @@ const LoginScreen = (props) => {
 
       if (data.success === true) {
         Alert.alert('Success', data.message || 'OTP sent successfully!');
-        props.navigation.navigate('Otp', { phoneNumber, callingCode });
+        props.navigation.navigate('Otp', { phoneNumber, callingCode,newCustomer : data?.message === 'New customer added successfully' ? true : false});
       } else {
         Alert.alert('Login Failed', data.message || 'Something went wrong.');
         props.navigation.navigate('Otp', { phoneNumber, callingCode });

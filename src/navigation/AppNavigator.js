@@ -11,6 +11,8 @@ import AstrolgersList from '../screens/AstrolgersList';
 import PoojaList from '../screens/PoojaList';
 import PoojaDetails from '../screens/PoojaDetails';
 import ChatScreen from '../screens/ChatScreen';
+import SignUp from '../screens/SignUp';
+import SlotDetails from '../screens/SlotDetails';
 import AstrologerDetailsScreen from '../screens/AstrologerDetailsScreen';
 import BottomTabs from '../components/BottomTabs'; // Import your tab navigator
 
@@ -22,6 +24,7 @@ const AppNavigator = () => {
       <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="SignUp" component={SignUp} />
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="Home" component={BottomTabs} /> 
         <Stack.Screen name="ShowHoroscope" component={ShowHoroscope} />
@@ -31,6 +34,7 @@ const AppNavigator = () => {
         <Stack.Screen name="PoojaList" component={PoojaList} />
         <Stack.Screen name="PoojaDetails" component={PoojaDetails} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
+        <Stack.Screen name="SlotDetails" component={SlotDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

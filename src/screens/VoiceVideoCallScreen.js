@@ -16,19 +16,25 @@ import {
   VideoViewSetupMode,
   RtcSurfaceView,
 } from 'react-native-agora';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Config from '../agoraconfig';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 let agoraEngine;
 
-export default function VoiceVideoCallScreen({ navigation }) {
+export default function VoiceVideoCallScreen({ navigation, route }) {
   const [isJoined, setIsJoined] = useState(false);
   const [remoteUid, setRemoteUid] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(route?.params?.isVideo || false);
   const [callDuration, setCallDuration] = useState(0);
   const pulseAnim = useState(new Animated.Value(1))[0];
+  
+  const astrologerData = route?.params?.astrologerData || {
+    name: 'Pt. Rajesh Sharma',
+    image: null,
+  };
 
   // Request mic + camera permissions
   const requestPermissions = async () => {
@@ -66,7 +72,7 @@ export default function VoiceVideoCallScreen({ navigation }) {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
+            toValue: 1.1,
             duration: 1000,
             useNativeDriver: true,
           }),
@@ -111,7 +117,11 @@ export default function VoiceVideoCallScreen({ navigation }) {
       },
     });
 
+    if (isVideoEnabled) {
+      await agoraEngine.enableVideo();
+    }
     agoraEngine.enableAudio();
+    
     await agoraEngine.joinChannel(
       Config.token,
       Config.channelName,
@@ -161,7 +171,7 @@ export default function VoiceVideoCallScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar 
         barStyle={isVideoEnabled ? "light-content" : "dark-content"}
-        backgroundColor={isVideoEnabled ? "#000" : "#FFF8E7"}
+        backgroundColor={isVideoEnabled ? "#1A1A1A" : "#FFFFFF"}
       />
       
       {isVideoEnabled ? (
@@ -177,8 +187,12 @@ export default function VoiceVideoCallScreen({ navigation }) {
 
               {/* Top Info Bar */}
               <View style={styles.videoTopBar}>
-                <Text style={styles.videoCallerName}>Contact Name</Text>
-                <Text style={styles.videoDuration}>{formatDuration(callDuration)}</Text>
+                <View style={styles.videoTopContent}>
+                  <View style={styles.videoCallerInfo}>
+                    <Text style={styles.videoCallerName}>{astrologerData.name}</Text>
+                    <Text style={styles.videoDuration}>{formatDuration(callDuration)}</Text>
+                  </View>
+                </View>
               </View>
 
               {/* Local Video - Small Overlay */}
@@ -192,10 +206,11 @@ export default function VoiceVideoCallScreen({ navigation }) {
             </>
           ) : (
             <View style={styles.connectingContainer}>
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>👤</Text>
+              <View style={styles.videoAvatarPlaceholder}>
+                <Icon name="account" size={80} color="#FFFFFF" />
               </View>
-              <Text style={styles.connectingText}>
+              <Text style={styles.connectingText}>{astrologerData.name}</Text>
+              <Text style={styles.connectingSubtext}>
                 {remoteUid ? 'Connecting...' : 'Calling...'}
               </Text>
             </View>
@@ -205,30 +220,38 @@ export default function VoiceVideoCallScreen({ navigation }) {
           <View style={styles.videoControls}>
             <TouchableOpacity 
               onPress={toggleMute} 
-              style={[styles.videoControlBtn, isMuted && styles.activeControl]}
+              style={[styles.videoControlBtn, isMuted && styles.videoActiveControl]}
             >
-              <Text style={styles.videoControlIcon}>{isMuted ? '🔇' : '🎤'}</Text>
+              <Icon 
+                name={isMuted ? 'microphone-off' : 'microphone'} 
+                size={26} 
+                color="#FFFFFF" 
+              />
             </TouchableOpacity>
 
             <TouchableOpacity 
               onPress={toggleVideo} 
               style={styles.videoControlBtn}
             >
-              <Text style={styles.videoControlIcon}>📹</Text>
+              <Icon name="video" size={26} color="#FFFFFF" />
             </TouchableOpacity>
 
             <TouchableOpacity 
               onPress={toggleSpeaker} 
-              style={[styles.videoControlBtn, isSpeakerOn && styles.activeControl]}
+              style={[styles.videoControlBtn, isSpeakerOn && styles.videoActiveControl]}
             >
-              <Text style={styles.videoControlIcon}>{isSpeakerOn ? '🔊' : '🔈'}</Text>
+              <Icon 
+                name={isSpeakerOn ? 'volume-high' : 'volume-medium'} 
+                size={26} 
+                color="#FFFFFF" 
+              />
             </TouchableOpacity>
 
             <TouchableOpacity 
               onPress={endCall} 
-              style={styles.endCallBtn}
+              style={styles.videoEndCallBtn}
             >
-              <Text style={styles.endCallIcon}>📞</Text>
+              <Icon name="phone-hangup" size={30} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -238,8 +261,10 @@ export default function VoiceVideoCallScreen({ navigation }) {
           {/* Header */}
           <View style={styles.voiceHeader}>
             <TouchableOpacity onPress={endCall} style={styles.backButton}>
-              <Text style={styles.backIcon}>←</Text>
+              <Icon name="arrow-left" size={24} color="#2C1810" />
             </TouchableOpacity>
+            <Text style={styles.voiceHeaderTitle}>VOICE CALL</Text>
+            <View style={{ width: 40 }} />
           </View>
 
           {/* Caller Info */}
@@ -251,14 +276,22 @@ export default function VoiceVideoCallScreen({ navigation }) {
               ]}
             >
               <View style={styles.avatar}>
-                <Text style={styles.avatarIcon}>👤</Text>
+                <Icon name="account" size={70} color="#FFFFFF" />
               </View>
+              <View style={styles.avatarRing} />
             </Animated.View>
 
-            <Text style={styles.callerName}>Contact Name</Text>
+            <Text style={styles.callerName}>{astrologerData.name}</Text>
             <Text style={styles.callStatus}>
-              {isJoined ? formatDuration(callDuration) : 'Calling...'}
+              {isJoined ? formatDuration(callDuration) : 'Connecting...'}
             </Text>
+            
+            {isJoined && (
+              <View style={styles.statusBadge}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Connected</Text>
+              </View>
+            )}
           </View>
 
           {/* Voice Controls */}
@@ -267,9 +300,16 @@ export default function VoiceVideoCallScreen({ navigation }) {
               <View style={styles.controlItem}>
                 <TouchableOpacity 
                   onPress={toggleSpeaker}
-                  style={[styles.roundControl, isSpeakerOn && styles.activeRoundControl]}
+                  style={[
+                    styles.roundControl, 
+                    isSpeakerOn && styles.activeRoundControl
+                  ]}
                 >
-                  <Text style={styles.controlEmoji}>{isSpeakerOn ? '🔊' : '🔈'}</Text>
+                  <Icon 
+                    name={isSpeakerOn ? 'volume-high' : 'volume-medium'} 
+                    size={28} 
+                    color={isSpeakerOn ? '#FFFFFF' : '#C9A961'} 
+                  />
                 </TouchableOpacity>
                 <Text style={styles.controlLabel}>Speaker</Text>
               </View>
@@ -279,7 +319,7 @@ export default function VoiceVideoCallScreen({ navigation }) {
                   onPress={toggleVideo}
                   style={styles.roundControl}
                 >
-                  <Text style={styles.controlEmoji}>📹</Text>
+                  <Icon name="video" size={28} color="#C9A961" />
                 </TouchableOpacity>
                 <Text style={styles.controlLabel}>Video</Text>
               </View>
@@ -287,9 +327,16 @@ export default function VoiceVideoCallScreen({ navigation }) {
               <View style={styles.controlItem}>
                 <TouchableOpacity 
                   onPress={toggleMute}
-                  style={[styles.roundControl, isMuted && styles.activeRoundControl]}
+                  style={[
+                    styles.roundControl, 
+                    isMuted && styles.activeRoundControl
+                  ]}
                 >
-                  <Text style={styles.controlEmoji}>{isMuted ? '🔇' : '🎤'}</Text>
+                  <Icon 
+                    name={isMuted ? 'microphone-off' : 'microphone'} 
+                    size={28} 
+                    color={isMuted ? '#FFFFFF' : '#C9A961'} 
+                  />
                 </TouchableOpacity>
                 <Text style={styles.controlLabel}>Mute</Text>
               </View>
@@ -300,7 +347,7 @@ export default function VoiceVideoCallScreen({ navigation }) {
               onPress={endCall}
               style={styles.voiceEndCallBtn}
             >
-              <Text style={styles.voiceEndCallIcon}>📞</Text>
+              <Icon name="phone-hangup" size={32} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -312,13 +359,13 @@ export default function VoiceVideoCallScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#000' 
+    backgroundColor: '#1A1A1A',
   },
 
   // Video Call Styles
   videoContainer: { 
     flex: 1, 
-    backgroundColor: '#000' 
+    backgroundColor: '#1A1A1A',
   },
   remoteVideo: { 
     flex: 1,
@@ -332,35 +379,42 @@ const styles = StyleSheet.create({
     right: 0,
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingBottom: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  videoTopContent: {
+    alignItems: 'center',
+  },
+  videoCallerInfo: {
     alignItems: 'center',
   },
   videoCallerName: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#FFFFFF',
+    fontSize: 20,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
   videoDuration: {
-    color: '#ddd',
+    color: '#C9A961',
     fontSize: 14,
     marginTop: 4,
+    letterSpacing: 1,
   },
   localVideoWrapper: {
     position: 'absolute',
-    top: 100,
+    top: 120,
     right: 20,
     width: 100,
     height: 150,
-    borderRadius: 12,
+    borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#C9A961',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   localVideo: {
     width: '100%',
@@ -370,24 +424,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#1A1A1A',
   },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFAE42',
+  videoAvatarPlaceholder: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatarText: {
-    fontSize: 60,
+    marginBottom: 24,
+    borderWidth: 3,
+    borderColor: 'rgba(201, 169, 97, 0.3)',
   },
   connectingText: {
-    color: '#fff',
-    fontSize: 18,
-    marginTop: 10,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  connectingSubtext: {
+    color: '#C9A961',
+    fontSize: 16,
+    letterSpacing: 1,
   },
   videoControls: {
     position: 'absolute',
@@ -398,87 +457,135 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 20,
+    paddingHorizontal: 20,
   },
   videoControlBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(10px)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  activeControl: {
-    backgroundColor: '#FFAE42',
+  videoActiveControl: {
+    backgroundColor: '#C9A961',
+    borderColor: '#C9A961',
   },
-  videoControlIcon: {
-    fontSize: 24,
-  },
-  endCallBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  videoEndCallBtn: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#E74C3C',
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ rotate: '135deg' }],
-  },
-  endCallIcon: {
-    fontSize: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
+    shadowColor: '#E74C3C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   // Voice Call Styles
   voiceContainer: {
     flex: 1,
-    backgroundColor: '#FFF8E7',
+    backgroundColor: '#FAF8F5',
   },
   voiceHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E4DC',
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  backIcon: {
-    fontSize: 28,
-    color: '#333',
+  voiceHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#C9A961',
+    letterSpacing: 2,
   },
   callerInfo: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingBottom: 80,
   },
   avatarContainer: {
-    marginBottom: 30,
+    marginBottom: 32,
+    position: 'relative',
   },
   avatar: {
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#FFAE42',
+    backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FFAE42',
-    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    shadowColor: '#C9A961',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  avatarIcon: {
-    fontSize: 70,
+  avatarRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 2,
+    borderColor: 'rgba(201, 169, 97, 0.2)',
+    top: -10,
+    left: -10,
   },
   callerName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '600',
-    color: '#333',
+    color: '#2C1810',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
   callStatus: {
     fontSize: 16,
-    color: '#666',
+    color: '#8B7355',
+    letterSpacing: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#4CAF50',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   voiceControls: {
     paddingBottom: 50,
@@ -493,46 +600,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roundControl: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#fff',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 8,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E4DC',
   },
   activeRoundControl: {
-    backgroundColor: '#FFAE42',
-  },
-  controlEmoji: {
-    fontSize: 26,
+    backgroundColor: '#C9A961',
+    borderColor: '#C9A961',
   },
   controlLabel: {
     fontSize: 13,
-    color: '#666',
-    marginTop: 4,
+    color: '#8B7355',
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   voiceEndCallBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#E74C3C',
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    transform: [{ rotate: '135deg' }],
     shadowColor: '#E74C3C',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  voiceEndCallIcon: {
-    fontSize: 32,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 3,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
   },
 });

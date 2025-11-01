@@ -32,7 +32,7 @@ const CELL_COUNT = 4;
 
 const Otp = (props) => {
   const navigation = useNavigation();
-  const { phoneNumber } = props.route.params;
+  const { phoneNumber, newCustomer } = props.route.params;
 
   const [isLoading, setIsLoading] = useState(false);
   const [value, setValue] = useState('');
@@ -53,8 +53,11 @@ const Otp = (props) => {
     setIsLoading(true);
     try {
       // Replace this with your API call
-      const response = true;
-      if (response) navigation.replace('Home');
+      if(newCustomer){
+        Alert.alert('Success', 'Please Fill Details!');
+        navigation.replace('SignUp');
+      }
+      else{ navigation.replace('Home');}
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Unable to verify OTP. Please try again later.');
@@ -83,7 +86,7 @@ const Otp = (props) => {
     <View style={styles.container}>
       {/* Watermark */}
       <Image
-        source={require('../../assets/images/newLogo.png')}
+        source={require('../../assets/images/logoBlack.png')}
         style={styles.watermarkImage}
       />
 
@@ -202,16 +205,19 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  watermarkImage: {
-    position: 'absolute',
-    opacity: 0.08,
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_WIDTH * 0.8,
-    resizeMode: 'contain',
-    top: SCREEN_HEIGHT * 0.25,
-    left: SCREEN_WIDTH * 0.1,
-    zIndex: -1,
-  },
+ watermarkImage: {
+  position: 'absolute',
+  opacity: 0.05,
+  width: SCREEN_WIDTH * 1.5, // fills entire width
+  height: SCREEN_HEIGHT * 1.0, // fills height
+  resizeMode: 'contain',
+  top: SCREEN_HEIGHT * 0.1,
+  left: -SCREEN_WIDTH * 0.25,
+  zIndex: -1,
+},
+
+
+
   codeFieldContainer: {
     marginTop: 20,
     alignItems: 'center',

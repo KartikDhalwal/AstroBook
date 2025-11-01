@@ -19,7 +19,7 @@ const { width } = Dimensions.get('window');
 const AstrologerDetailsScreen = ({ route, navigation }) => {
   const { astrologer } = route.params;
   const expertiseScrollRef = useRef(null);
-
+  console.log(astrologer?.consultationPrices,'consultationPrices')
   if (!astrologer) {
     return (
       <SafeAreaView style={styles.container}>
@@ -227,9 +227,8 @@ const AstrologerDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[styles.actionButton, styles.voiceButton]}
           onPress={() =>
-            navigation.navigate('VoiceVideoCallScreen', {
-              isVideo: false,
-              astrologerData: astrologer,
+            navigation.navigate('SlotDetails', {
+              astrolger: astrologer,
             })
           }
         >

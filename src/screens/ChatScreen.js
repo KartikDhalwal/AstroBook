@@ -262,7 +262,7 @@ export default class ChatScreen extends Component {
             case 'delivered':
                 return <Icon name="check-all" size={14} color="#8B7355" />;
             case 'read':
-                return <Icon name="check-all" size={14} color="#C9A961" />;
+                return <Icon name="check-all" size={14} color="#db9a4a" />;
             default:
                 return <Icon name="clock-outline" size={14} color="#8B7355" />;
         }
@@ -290,6 +290,7 @@ export default class ChatScreen extends Component {
                         ) : (
                             <View style={styles.avatarPlaceholder}>
                                 <Text style={styles.avatarText}>
+                                    AL
                                     {/* {this.state.astrologerData.name.charAt(0)} */}
                                 </Text>
                             </View>
@@ -385,7 +386,7 @@ export default class ChatScreen extends Component {
                                     />
                                 ) : (
                                     <View style={styles.headerAvatarPlaceholder}>
-                                        <Text style={styles.headerAvatarText}>Astrologer Name</Text>
+                                        <Text style={styles.headerAvatarText}>AL</Text>
                                     </View>
                                 )}
                                 {this.state.astrologerData.status === 'online' && (
@@ -393,7 +394,7 @@ export default class ChatScreen extends Component {
                                 )}
                             </View>
                             <View style={styles.headerTextContainer}>
-                                <Text style={styles.headerName}>{this.state.astrologerData.name}</Text>
+                                <Text style={styles.headerName}>Acharya LavBhushan</Text>
                                 <Text style={styles.headerStatus}>
                                     {this.state.isConnected
                                         ? this.state.astrologerData.status === 'online'
@@ -406,10 +407,10 @@ export default class ChatScreen extends Component {
 
                         <View style={styles.headerActions}>
                             {/* <TouchableOpacity style={styles.headerActionButton}>
-                                <Icon name="phone" size={22} color="#C9A961" />
+                                <Icon name="phone" size={22} color="#db9a4a" />
                             </TouchableOpacity> */}
                             <TouchableOpacity style={styles.headerActionButton}>
-                                <Icon name="dots-vertical" size={22} color="#C9A961" />
+                                <Icon name="dots-vertical" size={22} color="#db9a4a" />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -417,7 +418,7 @@ export default class ChatScreen extends Component {
                     {/* Connection Banner */}
                     {!this.state.isConnected && (
                         <View style={styles.connectionBanner}>
-                            <ActivityIndicator size="small" color="#C9A961" />
+                            <ActivityIndicator size="small" color="#db9a4a" />
                             <Text style={styles.connectionText}>Connecting to server...</Text>
                         </View>
                     )}
@@ -437,7 +438,7 @@ export default class ChatScreen extends Component {
                     {/* Input Section */}
                     <View style={styles.inputContainer}>
                         {/* <TouchableOpacity style={styles.attachButton}>
-                            <Icon name="plus-circle" size={28} color="#C9A961" />
+                            <Icon name="plus-circle" size={28} color="#db9a4a" />
                         </TouchableOpacity> */}
 
                         <View style={styles.inputWrapper}>
@@ -511,17 +512,17 @@ const styles = StyleSheet.create({
         height: 44,
         borderRadius: 22,
         borderWidth: 2,
-        borderColor: '#C9A961',
+        borderColor: '#db9a4a',
     },
     headerAvatarPlaceholder: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#C9A961',
+        backgroundColor: '#db9a4a',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#C9A961',
+        borderColor: '#db9a4a',
     },
     headerAvatarText: {
         fontSize: 18,
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#C9A961',
+        backgroundColor: '#db9a4a',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
         maxWidth: '100%',
     },
     myMessageBubble: {
-        backgroundColor: '#C9A961',
+        backgroundColor: '#db9a4a',
         borderBottomRightRadius: 4,
     },
     theirMessageBubble: {
@@ -685,7 +686,7 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#C9A961',
+        backgroundColor: '#db9a4a',
     },
     inputContainer: {
         flexDirection: 'row',
@@ -735,7 +736,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#C9A961',
+        backgroundColor: '#db9a4a',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 2,

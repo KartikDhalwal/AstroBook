@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AstroTalkHome from '../screens/HomeScreen';
 import AstrolgersList from '../screens/AstrolgersList';
 import PoojaList from '../screens/PoojaList';
@@ -63,25 +63,32 @@ const BottomTabs = () => {
         />
         <TabButton
           label="Book Pooja"
-          icon="color-wand-outline"
-          activeIcon="color-wand"
+          icon="campfire"
+          activeIcon="campfire"
           isActive={activeTab === 'PoojaList'}
           onPress={() => setActiveTab('PoojaList')}
+          activeTab
         />
       </View>
     </SafeAreaView>
   );
 };
 
-const TabButton = ({ label, icon, activeIcon, isActive, onPress }) => {
+const TabButton = ({ label, icon, activeIcon, isActive, onPress, activeTab }) => {
   return (
     <TouchableOpacity style={styles.tabButton} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons
+      {activeTab ? (<MaterialCommunityIcons
         name={isActive ? activeIcon : icon}
         size={26}
         color={isActive ? '#000' : '#888'}
         style={{ marginBottom: 2 }}
-      />
+      />):(<Ionicons
+        name={isActive ? activeIcon : icon}
+        size={26}
+        color={isActive ? '#000' : '#888'}
+        style={{ marginBottom: 2 }}
+      />)}
+      
       <Text style={[styles.label, isActive && styles.activeLabel]}>{label}</Text>
     </TouchableOpacity>
   );

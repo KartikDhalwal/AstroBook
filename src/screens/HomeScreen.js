@@ -109,22 +109,32 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </TouchableOpacity>
+  <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+    <View style={styles.menuLine} />
+    <View style={styles.menuLine} />
+    <View style={styles.menuLine} />
+  </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>AstroBook</Text>
-          <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
-        </View>
+  <View style={styles.headerCenter}>
+    {/* ✅ Logo added here */}
+    
+    <View>
+      <Text style={styles.headerTitle}>AstroBook</Text>
+      <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
+    </View>
+    <Image
+      source={require('../assets/images/logoBlack.png')}
+      style={styles.headerLogo}
+      resizeMode="contain"
+    />
+  </View>
 
-        <TouchableOpacity style={styles.notificationButton}>
-          <Icon name="bell-outline" size={24} color="black" />
-          <View style={styles.notificationBadge} />
-        </TouchableOpacity>
-      </View>
+  <TouchableOpacity style={styles.notificationButton}>
+    <Icon name="bell-outline" size={24} color="black" />
+    <View style={styles.notificationBadge} />
+  </TouchableOpacity>
+</View>
+
 
       {/* Scroll Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -135,7 +145,7 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
             <Text style={styles.bannerTitleHighlight}>Astrologers</Text>
             <Text style={styles.bannerSubtitle}>Get accurate predictions & personalized remedies</Text>
 
-            <TouchableOpacity style={styles.bannerButton}>
+            <TouchableOpacity style={styles.bannerButton} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
               <Text style={styles.bannerButtonText}>Consult Now</Text>
               <Icon name="arrow-right" size={24} color="#db9a4a" />
             </TouchableOpacity>
@@ -173,7 +183,7 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
               <Text style={styles.actionSubtext}>with Expert</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="video-outline" size={28} color="#fff" />
               </View>
@@ -181,7 +191,7 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
               <Text style={styles.actionSubtext}>Face to Face</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'chat' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="chat-outline" size={28} color="#fff" />
               </View>
@@ -267,7 +277,7 @@ const AstroTalkHome = ({  customerData: propCustomerData }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Special Offerings</Text>
 
-            <TouchableOpacity style={styles.specialCard}>
+            <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList')}>
               <View style={styles.specialLeft}>
                 <Icon name="hand-heart" size={36} color="#db9a4a" />
               </View>
@@ -419,68 +429,72 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EF',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF5E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuLine: {
-    width: 20,
-    height: 2,
-    backgroundColor: 'black',
-    marginVertical: 2,
-    borderRadius: 2,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#db9a4a',
-    marginTop: 2,
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF5E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 15,
+  paddingVertical: 10,
+  backgroundColor: '#fff',
+  elevation: 3,
+},
+
+menuButton: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 8,
+},
+
+menuLine: {
+  width: 22,
+  height: 2,
+  backgroundColor: '#000',
+  marginVertical: 2,
+  borderRadius: 1,
+},
+
+headerCenter: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8, // for spacing between logo and text
+},
+
+headerLogo: {
+  width: 60,
+  height: 60,
+},
+
+headerTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: '#2C1810',
+},
+
+headerSubtitle: {
+  fontSize: 12,
+  color: '#9C7A56',
+  marginTop: -2,
+},
+
+notificationButton: {
+  padding: 8,
+  position: 'relative',
+},
+
+notificationBadge: {
+  position: 'absolute',
+  right: 6,
+  top: 6,
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: 'red',
+},
+
+
   notificationIcon: {
     fontSize: 20,
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF3B30',
-  },
+
   content: {
     flex: 1,
   },

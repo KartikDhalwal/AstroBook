@@ -3,6 +3,7 @@ import { View, StyleSheet, Image } from 'react-native';
 import MyStatusBar from '../components/MyStatusbar';
 import { colors } from '../config/Constants1';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../config/Screen';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SplashScreen = ({ navigation }) => {
   useEffect(() => {
@@ -14,13 +15,13 @@ const SplashScreen = ({ navigation }) => {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <MyStatusBar backgroundColor={colors.background_theme2} barStyle="dark-content" />
       <Image
         source={require('../assets/astrobookimages/onboardingscreenNew.jpeg')}
         style={styles.splashImage}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
