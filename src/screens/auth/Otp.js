@@ -62,11 +62,12 @@ const Otp = (props) => {
     setIsLoading(true);
     try {
       const fcmToken = await getFcmTokenAstro();
+      console.log({fcmToken})
       const device_id = DeviceInfo.getUniqueIdSync?.() || 'unknown-device';
 
       const payload = {
         phoneNumber,
-        fcmToken,
+        fcmToken : fcmToken ?? 'esfxRYvTT8ipQvEXrgmPJ_:APA91bE-VW0hlDaiAwzRVx5Uay9D9TQCvWyI4qHuOS17wTPJUQLDb1lRRQrJ9Xf2XM9VdAhAKQWLULUkuflSvhoKq_BCvvLKQtjXPQzEKzyl2NwkRzKRdxM',
         device_id,
         otp: value,
       };
@@ -114,7 +115,7 @@ const Otp = (props) => {
               onPress: () =>
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Home' }],
+                  routes: [{ name: 'MainTabs' }],
                 }),
             },
           ]);

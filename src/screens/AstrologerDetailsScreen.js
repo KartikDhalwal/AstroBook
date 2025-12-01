@@ -16,10 +16,11 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 const BASE_URL = 'https://api.acharyalavbhushan.com/';
 const { width } = Dimensions.get('window');
 
-const AstrologerDetailsScreen = ({ route, navigation }) => {
-  const { astrologer } = route.params;
+const AstrologerDetailsScreen = ({ route, navigation, }) => {
+  const { astrologer, mode } = route.params;
+  console.log({ mode })
   const expertiseScrollRef = useRef(null);
-  console.log(astrologer?.consultationPrices,'consultationPrices')
+  console.log(astrologer?.consultationPrices, 'consultationPrices')
   if (!astrologer) {
     return (
       <SafeAreaView style={styles.container}>
@@ -52,7 +53,7 @@ const AstrologerDetailsScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
-        <View style={styles.header}>
+        {/* <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
@@ -63,7 +64,7 @@ const AstrologerDetailsScreen = ({ route, navigation }) => {
             {astrologer.astrologerName}
           </Text>
           <View style={{ width: 40 }} />
-        </View>
+        </View> */}
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
@@ -224,30 +225,49 @@ const AstrologerDetailsScreen = ({ route, navigation }) => {
 
       {/* Sticky Buttons */}
       <SafeAreaView style={styles.stickyContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.voiceButton]}
-          onPress={() =>
-            navigation.navigate('SlotDetails', {
-              astrolger: astrologer,
-            })
-          }
-        >
-          <Icon name="phone" size={20} color="#fff" />
-          <Text style={styles.actionText}>Voice Call</Text>
-        </TouchableOpacity>
+        {mode === 'voice' ? (
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.videoButton]}
-          onPress={() =>
-            navigation.navigate('VoiceVideoCallScreen', {
-              isVideo: true,
-              astrologerData: astrologer,
-            })
-          }
-        >
-          <Icon name="video" size={20} color="#fff" />
-          <Text style={styles.actionText}>Video Call</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.voiceButton]}
+            onPress={() =>
+              navigation.navigate('SlotDetails', {
+                astrolger: astrologer,
+                mode
+              })
+            }
+          >
+            <Icon name="phone" size={20} color="#fff" />
+            <Text style={styles.actionText}>Voice Call</Text>
+          </TouchableOpacity>
+        ) : null}
+        {mode === 'video' ? (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.videoButton]}
+            onPress={() =>
+              navigation.navigate('SlotDetails', {
+                astrolger: astrologer,
+                mode
+              })
+            }
+          >
+            <Icon name="video" size={20} color="#fff" />
+            <Text style={styles.actionText}>Video Call</Text>
+          </TouchableOpacity>
+        ) : null}
+        {mode === 'chat' ? (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.videoButton]}
+            onPress={() =>
+              navigation.navigate('SlotDetails', {
+                astrolger: astrologer,
+                mode
+              })
+            }
+          >
+            <Icon name="chat" size={20} color="#fff" />
+            <Text style={styles.actionText}>Chat</Text>
+          </TouchableOpacity>
+        ) : null}
       </SafeAreaView>
     </SafeAreaView>
   );

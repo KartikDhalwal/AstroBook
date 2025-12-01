@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import React, { useState, useRef } from 'react';
+import axios from 'axios';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,39 +15,118 @@ import {
   Modal,
   StatusBar,
   Animated,
+  FlatList,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { width, height } = Dimensions.get('screen');
 
 const AstroTalkHome = ({ customerData: propCustomerData }) => {
+  const [reviews, setReviews] = useState([]);
+  const flatListRef = useRef(null);
+  const currentIndex = useRef(0);
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      try {
+        const storedData = await AsyncStorage.getItem("customerData");
+        console.log({ storedData })
+        if (storedData) {
+          setCustomerData(JSON.parse(storedData));
+        }
+      } catch (error) {
+        console.error("Error reading customerData:", error);
+      }
+    };
+    const fetchReviews = async () => {
+      try {
+        const response = await axios.get(`https://api.acharyalavbhushan.com/api/customers/get-feedback`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log(response?.data, 'response?.data')
+        if (response?.data?.success) {
+          setReviews(response?.data?.data || []);
+        }
+      } catch (error) {
+        console.error("Error reading customerData:", error);
+      }
+    };
+
+    fetchCustomer();
+    fetchReviews();
+  }, []);
+  useEffect(() => {
+    if (reviews.length === 0) return;
+
+    const interval = setInterval(() => {
+      currentIndex.current =
+        (currentIndex.current + 1) % reviews.length;
+
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex.current,
+        animated: true,
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [reviews]);
+
+  const renderItem = ({ item }) => {
+    console.log(getImageUrl(item.image))
+    return (
+      <View style={styles.card}>
+        {/* <Text style={styles.quote}>“</Text> */}
+        <Text style={styles.reviewText}>{item.review}</Text>
+
+        <View style={styles.footer}>
+          {/* {item.image ? (
+            <Image
+              source={{ uri: getImageUrl(item.image) }}
+              style={styles.avatar}
+            />
+          ) : ( */}
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarInitial}>
+              {item.name?.charAt(0) || "U"}
+            </Text>
+          </View>
+          {/* )} */}
+
+          <View>
+            <Text style={styles.name}>{item.name}</Text>
+            <Text style={styles.rating}>
+              {"⭐".repeat(item.rating || 5)}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
   const navigation = useNavigation();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [customerData, setCustomerData] = useState(
-    propCustomerData || {
+    {
       customerName: 'User',
       phoneNumber: '1234567890',
       image: null,
     }
   );
+  // useEffect(()=>{
 
+  // })
   const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
 
   const drawerData = [
-    { title: 'Home', image: require('../assets/astrobookimages/drawer/home.png') },
-    { title: 'Book a Pooja', image: require('../assets/astrobookimages/drawer/pooja.png') },
-    { title: 'Customer Support', image: require('../assets/astrobookimages/drawer/customer.png') },
-    { title: 'Wallet Transactions', image: require('../assets/astrobookimages/drawer/wallet.png') },
-    { title: 'Order History', image: require('../assets/astrobookimages/drawer/order.png') },
-    { title: 'Astro Remedy', image: require('../assets/astrobookimages/drawer/astro.png') },
-    { title: 'Astrology Blog', image: require('../assets/astrobookimages/drawer/astrology.png') },
-    { title: 'Chat With Astrologers', image: require('../assets/astrobookimages/drawer/chatwith.png') },
-    { title: 'My Following', image: require('../assets/astrobookimages/drawer/follow.png') },
-    { title: 'My Message', image: require('../assets/astrobookimages/drawer/follow.png') },
-    { title: 'Free Service', image: require('../assets/astrobookimages/drawer/free_service.png') },
-    { title: 'Settings', image: require('../assets/astrobookimages/drawer/setting.png') },
-    { title: 'Logout', image: require('../assets/astrobookimages/drawer/logout.png') },
+    { title: 'Home', icon: 'home-outline' },
+    { title: 'My Consultations', icon: 'calendar-check-outline' },
+    // { title: 'Order History', icon: 'history' },
+    { title: 'Free Kundli', icon: 'book-open-page-variant' },
+    { title: 'About Us', icon: 'book-open-page-variant' },
+    // { title: 'Astrology Blog', icon: 'book-open-page-variant' },
+    // { title: 'Chat With Astrologers', icon: 'chat-outline' },
+    // { title: 'Free Service', icon: 'gift-outline' },
+    // { title: 'Customer Support', icon: 'headset' },
+    // { title: 'Settings', icon: 'cog-outline' },
+    { title: 'Logout', icon: 'logout' },
   ];
 
   const toggleDrawer = () => {
@@ -68,30 +148,42 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
     }
   };
 
- const handleLogout = () => {
-  Alert.alert('Logout', 'Do you want to logout?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Yes',
-      style: 'destructive',
-      onPress: async () => {
-        try {
-          await AsyncStorage.removeItem('customerData');
-          await AsyncStorage.removeItem('isLoggedIn');
-          navigation.replace('Login');
-        } catch (error) {
-          console.error('Error during logout:', error);
-        }
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Do you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Yes',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await AsyncStorage.removeItem('customerData');
+            await AsyncStorage.removeItem('isLoggedIn');
+            navigation.replace('Login');
+          } catch (error) {
+            console.error('Error during logout:', error);
+          }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
   const handleNavigation = (item) => {
     const { title } = item;
     setDrawerVisible(false);
 
     switch (title) {
+      case 'My Consultations':
+        navigation.navigate('UserConsultationList');
+        break;
+      case 'Free Kundli':
+        navigation.navigate('Free Kundli');
+        break;
+      case 'Chat With Astrologers':
+        navigation.navigate('PoojaList');
+        break;
+      case 'About Us':
+        navigation.navigate('About Us');
+        break;
       case 'Logout':
         handleLogout();
         break;
@@ -105,11 +197,16 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         break;
     }
   };
+  const BASE_URL = 'https://api.acharyalavbhushan.com/uploads/';
 
-  let Imguri = customerData.image;
-  const isDefault = Imguri?.endsWith('user_default.jpg');
-  if (isDefault) Imguri = null;
-
+  const getImageUrl = (path) =>
+    path?.startsWith('http') ? path : `${BASE_URL}${path}`;
+  let Imguri = getImageUrl(customerData.image);
+  console.log(Imguri, 'Imguri')
+  // let Imguri = customerData.image;
+  // const isDefault = Imguri?.endsWith('user_default.jpg');
+  // if (isDefault) Imguri = null;
+  console.log(customerData)
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -125,15 +222,15 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         <View style={styles.headerCenter}>
           {/* ✅ Logo added here */}
 
+          {/* <Image
+            source={require('../assets/images/logoBlack.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          /> */}
           <View>
             <Text style={styles.headerTitle}>AstroBook</Text>
             <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
           </View>
-          <Image
-            source={require('../assets/images/logoBlack.png')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
         </View>
 
         <TouchableOpacity style={styles.notificationButton}>
@@ -148,6 +245,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
           <View style={styles.bannerGradient}>
+            <Text style={styles.bannerTitle}>Hi {customerData?.customerName}</Text>
             <Text style={styles.bannerTitle}>Talk to India's Best</Text>
             <Text style={styles.bannerTitleHighlight}>Astrologers</Text>
             <Text style={styles.bannerSubtitle}>Get accurate predictions & personalized remedies</Text>
@@ -202,16 +300,16 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="chat-outline" size={28} color="#fff" />
               </View>
-              <Text style={styles.actionText}>Live Chat</Text>
+              <Text style={styles.actionText}>Chat</Text>
               <Text style={styles.actionSubtext}>Instant Reply</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionCard}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
-                <Icon name="file-document-outline" size={28} color="#fff" />
+                <Icon name="campfire" size={28} color="#fff" />
               </View>
-              <Text style={styles.actionText}>Get Report</Text>
-              <Text style={styles.actionSubtext}>Detailed</Text>
+              <Text style={styles.actionText}>Puja</Text>
+              <Text style={styles.actionSubtext}>Book Online Puja</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -223,17 +321,17 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               <Text style={styles.sectionTitle}>Free Services</Text>
               <Text style={styles.sectionSubtitle}>Explore our complimentary offerings</Text>
             </View>
-            <TouchableOpacity style={styles.viewAllButton}>
+            {/* <TouchableOpacity style={styles.viewAllButton}>
               <Text style={styles.viewAllText}>
                 View All <Icon name="arrow-right" size={12} color="#db9a4a" />
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.servicesScroll}>
             <TouchableOpacity
               style={styles.serviceCardEnhanced}
-            // onPress={() => navigation.navigate('ShowHoroscope')}
+              onPress={() => navigation.navigate('HoroscopeScreen')}
             >
               <View style={styles.serviceIconContainer}>
                 <Icon name="crystal-ball" size={28} color="#db9a4a" />
@@ -245,7 +343,9 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.serviceCardEnhanced}>
+            <TouchableOpacity style={styles.serviceCardEnhanced}
+              onPress={() => navigation.navigate('KundliMatchingScreen')}
+            >
               <View style={styles.serviceIconContainer}>
                 <Icon name={'heart-outline'} size={28} color="#db9a4a" />
               </View>
@@ -256,9 +356,11 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.serviceCardEnhanced}>
+            <TouchableOpacity style={styles.serviceCardEnhanced}
+              onPress={() => navigation.navigate('Free Kundli')}
+            >
               <View style={styles.serviceIconContainer}>
-                <Icon name={'account-star-outline'} size={28} color="#db9a4a" />
+                <Icon name={'book-open-page-variant'} size={28} color="#db9a4a" />
               </View>
               <Text style={styles.serviceTitle}>Free Kundli</Text>
               <Text style={styles.serviceDescription}>Birth chart analysis</Text>
@@ -267,16 +369,18 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.serviceCardEnhanced}>
+            {/* <TouchableOpacity style={styles.serviceCardEnhanced}
+              onPress={() => navigation.navigate('PoojaList')}
+            >
               <View style={styles.serviceIconContainer}>
                 <Icon name={'cards-outline'} size={28} color="#db9a4a" />
               </View>
-              <Text style={styles.serviceTitle}>Tarot Reading</Text>
+              <Text style={styles.serviceTitle}>Astro Remedies</Text>
               <Text style={styles.serviceDescription}>Card predictions</Text>
               <View style={styles.serviceBadge}>
                 <Text style={styles.serviceBadgeText}>FREE</Text>
               </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </ScrollView>
         </View>
 
@@ -286,7 +390,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
 
           <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList')}>
             <View style={styles.specialLeft}>
-              <Icon name="hand-heart" size={36} color="#db9a4a" />
+              <Icon name="campfire" size={36} color="#db9a4a" />
             </View>
             <View style={styles.specialMiddle}>
               <Text style={styles.specialTitle}>Book a Pooja</Text>
@@ -300,7 +404,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.specialCard}>
+          {/* <TouchableOpacity style={styles.specialCard}>
             <View style={styles.specialLeft}>
               <Icon name="om" size={36} color="#db9a4a" />
             </View>
@@ -314,29 +418,22 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <View style={styles.specialRight}>
               <Icon name="arrow-right" size={24} color="#db9a4a" />
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Testimonial Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>What Our Users Say</Text>
-          <View style={styles.testimonialCard}>
-            <View style={styles.quoteIcon}>
-              <Text style={styles.quoteText}>"</Text>
-            </View>
-            <Text style={styles.testimonialText}>
-              The predictions were incredibly accurate! The astrologer understood my concerns and provided practical solutions.
-            </Text>
-            <View style={styles.testimonialFooter}>
-              <View style={styles.testimonialAvatar}>
-                <Text style={styles.testimonialAvatarText}>RS</Text>
-              </View>
-              <View>
-                <Text style={styles.testimonialName}>Rajesh Sharma</Text>
-                <Text style={styles.testimonialRating}>⭐⭐⭐⭐⭐</Text>
-              </View>
-            </View>
-          </View>
+
+          <FlatList
+            ref={flatListRef}
+            data={reviews}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            renderItem={renderItem}
+            keyExtractor={(item) => item._id}
+          />
         </View>
 
         {/* Bottom Spacing */}
@@ -354,7 +451,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                   <View style={styles.profileContainer}>
                     <View style={styles.avatarWrapper}>
                       <Image
-                        source={Imguri ? { uri: Imguri } : require('../assets/images/user_img.png')}
+                        source={{ uri: Imguri }}
                         style={styles.avatar}
                       />
                       <View style={styles.avatarBadge}>
@@ -374,11 +471,17 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                 {/* Drawer Menu */}
                 <View style={styles.menuWrapper}>
                   {drawerData.map((item, idx) => (
-                    <TouchableOpacity key={idx} style={styles.menuItem} onPress={() => handleNavigation(item)}>
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.menuItem}
+                      onPress={() => handleNavigation(item)}
+                    >
                       <View style={styles.menuIconWrapper}>
-                        <Image source={item.image} style={styles.menuIcon} />
+                        <Icon name={item.icon} size={24} color="#444" />
                       </View>
+
                       <Text style={styles.menuText}>{item.title}</Text>
+
                       <Text style={styles.menuArrow}>›</Text>
                     </TouchableOpacity>
                   ))}
@@ -387,34 +490,33 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                 {/* Social */}
                 <View style={styles.socialWrapper}>
                   <Text style={styles.socialText}>Connect With Us</Text>
+
                   <View style={styles.socialRow}>
+
+                    {/* Facebook */}
                     <TouchableOpacity
                       style={styles.socialButton}
                       onPress={() => Linking.openURL('https://www.facebook.com/')}
                     >
-                      <Image
-                        source={require('../assets/astrobookimages/drawer/facebook.png')}
-                        style={styles.socialIcon}
-                      />
+                      <Icon name="facebook" size={26} color="#9C7A56" />
                     </TouchableOpacity>
+
+                    {/* Instagram */}
                     <TouchableOpacity
                       style={styles.socialButton}
                       onPress={() => Linking.openURL('https://www.instagram.com/')}
                     >
-                      <Image
-                        source={require('../assets/astrobookimages/drawer/instagram.png')}
-                        style={styles.socialIcon}
-                      />
+                      <Icon name="instagram" size={26} color="#9C7A56" />
                     </TouchableOpacity>
+
+                    {/* LinkedIn */}
                     <TouchableOpacity
                       style={styles.socialButton}
                       onPress={() => Linking.openURL('https://www.linkedin.com/')}
                     >
-                      <Image
-                        source={require('../assets/astrobookimages/drawer/link.png')}
-                        style={styles.socialIconSmall}
-                      />
+                      <Icon name="linkedin" size={26} color="#9C7A56" />
                     </TouchableOpacity>
+
                   </View>
                 </View>
                 <Text style={styles.versionText}>Version 1.0.0</Text>
@@ -431,6 +533,56 @@ export default AstroTalkHome;
 
 
 const styles = StyleSheet.create({
+  card: {
+    width: width * 0.9,
+    backgroundColor: "#FFFFFF",
+    marginRight: 16,
+    padding: 20,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: "#db9a4a",
+  },
+  reviewText: {
+    fontSize: 14,
+    color: "#444",
+    lineHeight: 20,
+    marginBottom: 16,
+    fontStyle: "italic",
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarFallback: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#db9a4a",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  avatarInitial: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2C1810",
+  },
+  rating: {
+    fontSize: 12,
+    color: "#db9a4a",
+    marginTop: 2,
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#F8F4EF',
@@ -443,6 +595,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff',
     elevation: 3,
+    marginTop: 30
   },
 
   menuButton: {
@@ -462,7 +615,7 @@ const styles = StyleSheet.create({
   headerCenter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8, // for spacing between logo and text
+    gap: 0, // for spacing between logo and text
   },
 
   headerLogo: {
@@ -916,13 +1069,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   menuIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF5E6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
+    width: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
   menuIcon: {
     width: 20,

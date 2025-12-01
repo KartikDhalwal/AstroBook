@@ -25,6 +25,7 @@ const AstrolgersList = ({ route, mode: propMode }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [astrologers, setAstrologers] = useState([]);
+  const [astrologersDetails, setAstrologersDetails] = useState();
   const [searchQuery, setSearchQuery] = useState('');
   const [expertiseList, setExpertiseList] = useState([]);
   const [selectedExpertise, setSelectedExpertise] = useState(null);
@@ -45,6 +46,7 @@ const AstrolgersList = ({ route, mode: propMode }) => {
       const response = await axios.get(`${api}/astrologer/get-all-astrologers`, {
         headers: { 'Content-Type': 'application/json' },
       });
+      console.log(response?.data,'response?.data')
       if (response?.data?.success) {
         setAstrologers(response?.data?.astrologer || []);
       } else {
@@ -114,8 +116,10 @@ if (selectedExpertise) {
         { headers: { 'Content-Type': 'application/json' } }
       );
       if (response?.data?.success) {
+        setAstrologersDetails(response.data.astrologer)
         navigation.navigate('AstrologerDetailsScreen', {
           astrologer: response.data.astrologer,
+          mode
         });
       } else {
         Alert.alert('No Data', 'Astrologer details not found.');
@@ -131,8 +135,7 @@ if (selectedExpertise) {
   const Container = routeMode ? SafeAreaView : View;
 
   return (
-    <Container style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
+    <View style={styles.container}>
       <MyLoader isVisible={isLoading} />
 
       {/* Header with Search + Filter */}
@@ -207,12 +210,7 @@ if (selectedExpertise) {
                   {mode === 'voice' && (
                     <TouchableOpacity
                       style={styles.actionButton}
-                      onPress={() =>
-                        navigation.navigate('VoiceVideoCallScreen', {
-                          isVideo: false,
-                          astrologerData: astro,
-                        })
-                      }
+                      onPress={() => fetchAstrologerDetails(astro?._id)}
                     >
                       <Icon name="phone" size={22} color="#FFF" />
                     </TouchableOpacity>
@@ -221,12 +219,7 @@ if (selectedExpertise) {
                   {mode === 'video' && (
                     <TouchableOpacity
                       style={styles.actionButton}
-                      onPress={() =>
-                        navigation.navigate('VoiceVideoCallScreen', {
-                          isVideo: true,
-                          astrologerData: astro,
-                        })
-                      }
+                      onPress={() => fetchAstrologerDetails(astro?._id)}
                     >
                       <Icon name="video" size={22} color="#FFF" />
                     </TouchableOpacity>
@@ -303,7 +296,7 @@ if (selectedExpertise) {
           </View>
         </View>
       </Modal>
-    </Container>
+    </View>
   );
 };
 

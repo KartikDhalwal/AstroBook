@@ -33,14 +33,14 @@ const PoojaDetails = () => {
     path?.startsWith('http') ? path : `${BASE_URL}${path}`;
 
   const handlePayment = async () => {
-    if (!selectedDate || !selectedTime) {
-      Alert.alert('Select Date & Time', 'Please choose both date and time slot before booking.');
+    if (!selectedDate) {
+      Alert.alert('Select Date', 'Please choose date slot before booking.');
       return;
     }
 
     try {
       const options = {
-        description: `Booking for ${pooja?.pujaName} on ${selectedDate.toDateString()} at ${selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        description: `Booking for ${pooja?.pujaName} on ${selectedDate.toDateString()}.`,
         image: getImageUrl(pooja?.image?.[0]),
         currency: 'INR',
         key: 'rzp_test_YourKeyHere', // Replace with your actual Razorpay key
@@ -56,7 +56,7 @@ const PoojaDetails = () => {
 
       RazorpayCheckout.open(options)
         .then((data) => {
-          Alert.alert('Success', `Payment ID: ${data.razorpay_payment_id}`);
+          Alert.alert('Success', `Our astorologer expert will contact you soon for the confirmation of pooja`);
           // TODO: Call backend to confirm booking with selectedDate & selectedTime
         })
         .catch((error) => {
@@ -81,7 +81,7 @@ const PoojaDetails = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
       
       {/* Header */}
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
@@ -89,7 +89,7 @@ const PoojaDetails = () => {
           <Icon name="arrow-left" size={24} color="#db9a4a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{pooja.pujaName}</Text>
-      </View>
+      </View> */}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Image
@@ -106,7 +106,7 @@ const PoojaDetails = () => {
 
         {/* Date and Time Selection */}
         <View style={styles.slotContainer}>
-          <Text style={styles.slotLabel}>Select Date & Time</Text>
+          <Text style={styles.slotLabel}>Select Date</Text>
 
           <TouchableOpacity
             style={styles.slotButton}
@@ -118,7 +118,7 @@ const PoojaDetails = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.slotButton}
             onPress={() => setShowTimePicker(true)}
           >
@@ -128,7 +128,7 @@ const PoojaDetails = () => {
                 ? selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : 'Select Time'}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Date Picker */}

@@ -2,7 +2,9 @@
 import React, { useEffect } from 'react';
 import AppNavigator from './src/navigation/AppNavigator';
 import { LogBox } from 'react-native';
-import { FirebaseApp, initializeApp } from '@react-native-firebase/app';
+import { initializeApp } from '@react-native-firebase/app';
+import messaging from "@react-native-firebase/messaging";
+import { navigate } from "./src/navigation/navigationRef";
 
 LogBox.ignoreLogs(['Setting a timer']);
 
@@ -20,11 +22,31 @@ const firebaseConfig = {
 export default function App() {
   useEffect(() => {
     try {
-      const app = initializeApp(firebaseConfig);
-      console.log('✅ Firebase initialized:', app.name);
-    } catch (error) {
-      console.log('⚙️ Firebase already initialized:', error.message);
+      initializeApp(firebaseConfig);
+      console.log("🔥 Firebase initialized");
+    } catch (e) {
+      console.log("⚙️ Firebase already initialized");
     }
+
+    const unsubscribe = messaging().onMessage(async (msg) => {
+      console.log("📩 MESSAGE RECEIVED:", msg.data);
+      // if (msg.data.type === "customer_upcoming_consultation") {
+
+      //   navigate("UserConsultationList", {
+      //     bookingId: msg.data.bookingId,
+      //     channelName: msg.data.channelName,
+      //   });
+      // }
+      if (msg.data?.type === "incoming_call") {
+        navigate("UserIncomingCallPopup", {
+          booking: JSON.parse(msg.data.booking),
+          astrologerData: JSON.parse(msg.data.astrologerData),
+          channelName: msg.data.channelName,
+        });
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   return <AppNavigator />;

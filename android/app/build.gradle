@@ -104,6 +104,10 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            lintOptions {
+                checkReleaseBuilds false
+                abortOnError false
+            }
         }
     }
 }
@@ -122,4 +126,10 @@ implementation 'com.google.firebase:firebase-analytics'
 }
 
 apply plugin: 'com.google.gms.google-services'
-
+gradle.projectsEvaluated {
+    tasks.whenTaskAdded { task ->
+        if (task.name == "generateReleaseLintVitalReportModel" || task.name == "generateDebugLintVitalReportModel") {
+            task.dependsOn copyReactNativeVectorIconFonts
+        }
+    }
+}
