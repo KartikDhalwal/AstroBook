@@ -31,13 +31,14 @@ import axios from 'axios';
 import DeviceInfo from 'react-native-device-info'; // ✅ For device_id
 import api from '../../apiConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('screen');
 const CELL_COUNT = 4;
 
 const Otp = (props) => {
   const navigation = useNavigation();
-  const { phoneNumber, callingCode, newCustomer } = props.route.params;
+  const { phoneNumber, callingCode, newCustomer, email } = props.route.params;
 
   const [isLoading, setIsLoading] = useState(false);
   const [value, setValue] = useState('');
@@ -62,15 +63,23 @@ const Otp = (props) => {
     setIsLoading(true);
     try {
       const fcmToken = await getFcmTokenAstro();
-      console.log({fcmToken})
       const device_id = DeviceInfo.getUniqueIdSync?.() || 'unknown-device';
-
-      const payload = {
-        phoneNumber,
-        fcmToken : fcmToken ?? 'esfxRYvTT8ipQvEXrgmPJ_:APA91bE-VW0hlDaiAwzRVx5Uay9D9TQCvWyI4qHuOS17wTPJUQLDb1lRRQrJ9Xf2XM9VdAhAKQWLULUkuflSvhoKq_BCvvLKQtjXPQzEKzyl2NwkRzKRdxM',
-        device_id,
-        otp: value,
-      };
+      let payload = {};
+      if (phoneNumber) {
+        payload = {
+          phoneNumber,
+          fcmToken: fcmToken,
+          device_id,
+          otp: value,
+        };
+      } else if (email) {
+        payload = {
+          email,
+          fcmToken: fcmToken,
+          device_id,
+          otp: value,
+        };
+      }
 
       console.log('Verifying customer with payload:', payload);
 
@@ -109,16 +118,16 @@ const Otp = (props) => {
             },
           ]);
         } else {
-          Alert.alert('Success', 'Login Successful!', [
-            {
-              text: 'OK',
-              onPress: () =>
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainTabs' }],
-                }),
-            },
-          ]);
+          Toast.show({
+            type: "success",
+            text1: "OTP Sent!",
+            text2: res.message || "OTP sent successfully!",
+          });
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          })
+           
         }
       } else {
         Alert.alert('Error', res.message || 'Verification failed.');
@@ -176,7 +185,7 @@ const Otp = (props) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-left" size={26} color="#db9a4a" />
           </TouchableOpacity>
-          <Text style={styles.title}>Verify Phone</Text>
+          <Text style={styles.title}>Verify OTP</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -184,7 +193,7 @@ const Otp = (props) => {
         <View style={styles.otpContainer}>
           <Text style={styles.otpText}>
             <TranslateText title="OTP Sent to" />{' '}
-            <Text style={styles.phoneText}>+91-{phoneNumber}</Text>
+            <Text style={styles.phoneText}>{phoneNumber ? '+91-' + phoneNumber : email}</Text>
           </Text>
 
           <View style={styles.codeFieldContainer}>
@@ -229,17 +238,17 @@ const Otp = (props) => {
           </View>
 
           {/* Divider */}
-          <View style={styles.orIconContainer}>
+          {/* <View style={styles.orIconContainer}>
             <OrIcon width={SCREEN_WIDTH * 0.9} />
-          </View>
+          </View> */}
 
           {/* Social Login */}
-          <View style={styles.googleView}>
+          {/* <View style={styles.googleView}>
             <TouchableOpacity style={styles.googleBtn}>
               <Ionicons name="call" color="#039ce3ff" size={24} />
               <Text style={styles.googleText}><TranslateText title="TrueCaller" /></Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </View>
     </View>

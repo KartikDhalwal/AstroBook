@@ -12,6 +12,10 @@ import KundliScreen from '../screens/KundliScreen';
 import KundliDetailScreen from '../screens/KundliDetailScreen';
 import ConsultationDetailsScreen from '../screens/ConsultationDetailsScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
+import BlogScreen from '../screens/BlogScreen';
+import ChatScreen from '../screens/ChatScreen';
+import BlogDetailsScreen from '../screens/BlogDetailsScreen';
+import SignUp from '../screens/SignUp';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,7 +26,7 @@ export default function HomeStack() {
         headerShown: true,
         headerTitleAlign: 'center',
         headerTitleStyle: { fontSize: 18, fontWeight: '700' },
-        
+
       }}
     >
 
@@ -46,8 +50,18 @@ export default function HomeStack() {
       <Stack.Screen name="Kundli Details" component={KundliDetailScreen} options={{ title: "Kundli Details" }} />
       <Stack.Screen name="Consultation Details" component={ConsultationDetailsScreen} options={{ title: "Kundli Details" }} />
       <Stack.Screen name="About Us" component={AboutUsScreen} options={{ title: "About Us" }} />
-
-
+      <Stack.Screen name="Blogs" component={BlogScreen} options={{ title: "Blogs" }} />
+      <Stack.Screen name="Blog" component={BlogDetailsScreen} options={{ title: "Blog" }} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: "Connect" }} />
+      <Stack.Screen
+        name="VideoList"
+        component={props => <AstrolgersList {...props} mode="video" />}
+      />
+      <Stack.Screen
+        name="SignUp"
+        component={SignUp}
+        options={{ headerShown: true, title: 'Profile' }}
+      />
     </Stack.Navigator>
   );
 }

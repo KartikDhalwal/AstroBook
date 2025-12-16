@@ -36,8 +36,7 @@ const KundliMatchingScreen = () => {
   const [showMaleDatePicker, setShowMaleDatePicker] = useState(false);
   const [showMaleTimePicker, setShowMaleTimePicker] = useState(false);
 
-  const handleMaleInputField = (name, value) =>
-    setMaleInputField({ ...maleInputField, [name]: value });
+  const handleMaleInputField = (name, value) =>setMaleInputField(prev => ({ ...prev, [name]: value }))
 
   // ---------------------- FEMALE INPUTS ------------------------
   const [femaleInputField, setFemaleInputField] = useState({
@@ -52,8 +51,8 @@ const KundliMatchingScreen = () => {
   const [showFemaleDatePicker, setShowFemaleDatePicker] = useState(false);
   const [showFemaleTimePicker, setShowFemaleTimePicker] = useState(false);
 
-  const handleFemaleInputField = (name, value) =>
-    setFemaleInputField({ ...femaleInputField, [name]: value });
+  const handleFemaleInputField = (name, value) =>setFemaleInputField(prev => ({ ...prev, [name]: value }))
+
 
   // ----------------------- INPUT ERRORS ------------------------
   const [inputFieldError, setInputFieldError] = useState({});
@@ -114,6 +113,9 @@ const KundliMatchingScreen = () => {
   };
 
   const handleGetReport = async () => {
+    console.log("Male Place:", maleInputField.place_of_birth);
+console.log("Female Place:", femaleInputField.place_of_birth);
+
     if (!handleValidation()) return;
 
     const customerData = JSON.parse(await AsyncStorage.getItem("customerData"));
@@ -127,7 +129,7 @@ const KundliMatchingScreen = () => {
             maleInputField.birth_date,
             maleInputField.birth_time
           ),
-          FemaleplaceOfBirth: maleInputField.place_of_birth,
+          MaleplaceOfBirth: maleInputField.place_of_birth,
           lat: maleInputField.latitude ?? "26.4498954",
           lon: maleInputField.longitude ?? "74.6399163",
         },
@@ -170,7 +172,7 @@ const KundliMatchingScreen = () => {
           <Text style={styles.bannerTitle}>Discover Your</Text>
           <Text style={styles.bannerTitleHighlight}>Perfect Match</Text>
           <Text style={styles.bannerSubtitle}>
-            Ancient Vedic wisdom for modern relationships
+            Ancient vedic wisdom for modern relationships
           </Text>
         </View>
 

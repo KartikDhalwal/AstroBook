@@ -8,7 +8,7 @@ export default function ChatStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
-        headerTitle: "Live Chat",
+        headerTitle: "Chat",
       }}
     >
       <Stack.Screen

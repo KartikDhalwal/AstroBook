@@ -13,8 +13,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 const AboutUsScreen = ({ navigation }) => {
   const handleBookNow = () => {
-    // Navigate to your booking/consultation screen here
-    // navigation.navigate("Consultation");
+    navigation.navigate("AstrolgersList", { mode: "video" })
   };
 
   return (
@@ -32,10 +31,10 @@ const AboutUsScreen = ({ navigation }) => {
                 Celebrity Astrologer | Vastu Expert | Life Coach
               </Text>
               <Text style={styles.heroTitle}>
-                Get One-to-One Consultation from Acharya Lav Bhushan
+                Get One-to-One Consultation from Acharya LavBhushan
               </Text>
               <Text style={styles.heroDescription}>
-                Acharya Lav Bhushan is a renowned Vedic astrologer and Vastu
+                Acharya LavBhushan is a renowned Vedic astrologer and Vastu
                 expert known for accurate predictions, practical remedies and
                 result-oriented guidance in career, marriage, finance, health,
                 business and overall life decisions.
@@ -61,9 +60,9 @@ const AboutUsScreen = ({ navigation }) => {
 
           {/* About / Story Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About Acharya Lav Bhushan</Text>
+            <Text style={styles.sectionTitle}>About Acharya LavBhushan</Text>
             <Text style={styles.sectionBodyText}>
-              Acharya Lav Bhushan has spent years studying and practicing Vedic
+              Acharya LavBhushan has spent years studying and practicing Vedic
               astrology, Vastu Shastra and related occult sciences. His approach
               combines traditional shastra-based wisdom with a very practical
               and modern outlook, so that guidance is not only spiritually
@@ -175,7 +174,7 @@ const AboutUsScreen = ({ navigation }) => {
               </View>
             </View>
 
-            <View style={styles.serviceCard}>
+            {/* <View style={styles.serviceCard}>
               <View style={styles.serviceIconWrapper}>
                 <Icon name="file-document-star" size={22} color="#B6732F" />
               </View>
@@ -187,7 +186,7 @@ const AboutUsScreen = ({ navigation }) => {
                   you can refer back whenever needed.
                 </Text>
               </View>
-            </View>
+            </View> */}
 
             <View style={styles.serviceCard}>
               <View style={styles.serviceIconWrapper}>
@@ -281,7 +280,7 @@ const AboutUsScreen = ({ navigation }) => {
           {/* USPs / Values */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Why Choose Acharya Lav Bhushan?
+              Why Choose Acharya LavBhushan?
             </Text>
 
             <View style={styles.valuesRow}>
@@ -397,12 +396,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#B6732F",
     marginBottom: 4,
+    width:1000
   },
   heroTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: "#1A1A1A",
     marginBottom: 6,
+    width:280
   },
   heroDescription: {
     fontSize: 13,

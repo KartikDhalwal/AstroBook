@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import axios from "axios";
-
+import Svg, { Path, Text as SvgText, G } from "react-native-svg";
+import AstroTextRenderer from "../screens/auth/components/AstroTextRenderer"
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android") {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -27,7 +28,7 @@ if (Platform.OS === "android") {
 const tabs = [
     { id: "general", title: "General Info", icon: "star-four-points" },
     { id: "charts", title: "Charts & Graphs", icon: "chart-arc" },
-    { id: "planet", title: "Planetary Data", icon: "solar-system" },
+    { id: "planet", title: "Planetary Data", icon: "orbit" },
     { id: "dosha", title: "Doshas & Effects", icon: "alert-decagram" },
     { id: "dasha", title: "Dashas", icon: "zodiac-aquarius" },
     { id: "kp", title: "KP Astrology", icon: "telescope" },
@@ -45,6 +46,97 @@ const tabs = [
  * - Format C: plain object/array
  * Optional innerKey: extracts from array items (e.g. astrodata)
  */
+// ===========================================
+// GENERIC VALUE RENDERER (fixes JSON in UI)
+// ===========================================
+
+const isPrimitive = (val) =>
+    val === null ||
+    val === undefined ||
+    typeof val === "string" ||
+    typeof val === "number" ||
+    typeof val === "boolean";
+
+const formatNumberIfLatLng = (key, value) => {
+    if (
+        typeof value === "number" &&
+        ["latitude", "longitude", "lat", "lon"].includes(key)
+    ) {
+        return value.toFixed(2);
+    }
+    return value;
+};
+
+const renderValue = (value, depth = 0, parentKey = "", path = "") => {
+    // Primitive
+    if (isPrimitive(value)) {
+        const formatted =
+            typeof value === "number"
+                ? formatNumberIfLatLng(parentKey, value)
+                : value;
+
+        return (
+            <Text key={path} style={dataSectionStyles.valueText}>
+                {String(formatted)}
+            </Text>
+        );
+    }
+
+    // Array
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return (
+                <Text key={path} style={dataSectionStyles.valueText}>
+                    —
+                </Text>
+            );
+        }
+
+        return (
+            <View style={{ paddingLeft: depth * 8 }}>
+                {value.map((item, idx) => {
+                    const itemPath = `${path}[${idx}]`;
+
+                    return (
+                        <View key={itemPath} style={{ marginBottom: 4 }}>
+                            {isPrimitive(item) ? (
+                                <Text style={dataSectionStyles.valueText}>
+                                    • {String(item)}
+                                </Text>
+                            ) : (
+                                renderValue(item, depth + 1, parentKey, itemPath)
+                            )}
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    }
+
+    // Object
+    if (typeof value === "object" && value !== null) {
+        return (
+            <View style={{ paddingLeft: depth * 8 }}>
+                {Object.entries(value).map(([k, v]) => {
+                    const currentPath = path ? `${path}.${k}` : k;
+
+                    return (
+                        <View key={currentPath} style={{ marginBottom: 6 }}>
+                            <Text style={dataSectionStyles.keyText}>
+                                {k.replace(/_/g, " ").toUpperCase()}
+                            </Text>
+                            {renderValue(v, depth + 1, k, currentPath)}
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    }
+
+    return null;
+};
+
+
 const normalizeApiResponse = (root, { innerKey } = {}) => {
     if (!root) return null;
 
@@ -123,11 +215,7 @@ const DataSection = ({ title, data }) => {
                                 <Text style={dataSectionStyles.cellKey}>
                                     {key.replace(/_/g, " ").toUpperCase()}
                                 </Text>
-                                <Text style={dataSectionStyles.cellVal}>
-                                    {typeof value === "object"
-                                        ? JSON.stringify(value)
-                                        : String(value)}
-                                </Text>
+                                {renderValue(value)}
                             </View>
                         ))}
                     </View>
@@ -135,6 +223,7 @@ const DataSection = ({ title, data }) => {
             </CollapsibleCard>
         );
     }
+
 
     // Plain object -> key/value
     if (typeof data === "object") {
@@ -145,16 +234,15 @@ const DataSection = ({ title, data }) => {
                         <Text style={dataSectionStyles.keyText}>
                             {key.replace(/_/g, " ").toUpperCase()}
                         </Text>
-                        <Text style={dataSectionStyles.valueText}>
-                            {typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value)}
-                        </Text>
+                        <View style={{ flex: 1 }}>
+                            {renderValue(value)}
+                        </View>
                     </View>
                 ))}
             </CollapsibleCard>
         );
     }
+
 
     // Primitive
     return (
@@ -163,80 +251,141 @@ const DataSection = ({ title, data }) => {
         </CollapsibleCard>
     );
 };
+const planetColumns = [
+    { key: "name", label: "PLANET", width: 100 },
+    { key: "house", label: "HOUSE", width: 70 },
+    { key: "rashi", label: "RASHI", width: 90 },
+    { key: "degree", label: "DEGREE", width: 90 },
+    { key: "isRetrograde", label: "RETRO", width: 80 },
+    { key: "isCombust", label: "COMBUST", width: 90 },
+    { key: "PlanetState", label: "STATE", width: 90 },
+];
+
 
 // Planet table with horizontal scroll
 const PlanetTable = ({ title, rows }) => {
     if (!rows || !Array.isArray(rows) || rows.length === 0) return null;
 
-    const firstRow = rows[0];
-    if (!firstRow || typeof firstRow !== "object") {
-        return <DataSection title={title} data={rows} />;
-    }
-
-    const headers = Object.keys(firstRow);
-
     return (
         <CollapsibleCard title={title}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View>
+
+                    {/* HEADER */}
                     <View style={planetStyles.headerRow}>
-                        {headers.map((h) => (
-                            <Text key={h} style={planetStyles.headerText}>
-                                {h.replace(/_/g, " ").toUpperCase()}
-                            </Text>
+                        {planetColumns.map(col => (
+                            <View
+                                key={col.key}
+                                style={[planetStyles.cell, { width: col.width }]}
+                            >
+                                <Text style={planetStyles.headerText}>
+                                    {col.label}
+                                </Text>
+                            </View>
                         ))}
                     </View>
 
-                    {rows.map((row, i) => (
-                        <View key={i} style={planetStyles.row}>
-                            {headers.map((h) => (
-                                <Text key={h} style={planetStyles.cell}>
-                                    {typeof row[h] === "object"
-                                        ? JSON.stringify(row[h])
-                                        : String(row[h])}
-                                </Text>
+                    {/* ROWS */}
+                    {rows.map((row, rowIndex) => (
+                        <View key={rowIndex} style={planetStyles.row}>
+                            {planetColumns.map(col => (
+                                <View
+                                    key={`${rowIndex}-${col.key}`}
+                                    style={[planetStyles.cell, { width: col.width }]}
+                                >
+                                    {renderValue(row[col.key])}
+                                </View>
                             ))}
                         </View>
                     ))}
+
                 </View>
             </ScrollView>
         </CollapsibleCard>
     );
 };
 
+
 // Dosha card
 const DoshaCard = ({ title, data }) => {
     if (!data) return null;
 
-    const d = data.data || data;
+    // ---------- MANGAL DOSH ----------
+    if (data.mangalDosha) {
+        const d = data.mangalDosha;
+        return (
+            <CollapsibleCard title={title}>
+                <Text style={doshaStyles.status}>
+                    Type: {d.type || "—"} | Intensity: {d.intensity || "—"}
+                </Text>
+                {d.reason && <Text style={doshaStyles.desc}>{d.reason}</Text>}
+                {d.info && <Text style={doshaStyles.desc}>{d.info}</Text>}
+            </CollapsibleCard>
+        );
+    }
 
-    return (
-        <CollapsibleCard title={title}>
-            <View style={doshaStyles.block}>
-                {d.status || d.dosha_status ? (
+    // ---------- KAAL SARP DOSH ----------
+    if (data.kaalsarpDosha) {
+        const d = data.kaalsarpDosha;
+        return (
+            <CollapsibleCard title={title}>
+                <Text style={doshaStyles.status}>
+                    Status: {d.kalsharpdosh ? "Present" : "Not Present"}
+                </Text>
+                {d.type && <Text style={doshaStyles.desc}>Type: {d.type}</Text>}
+                {d.info && <Text style={doshaStyles.desc}>{d.info}</Text>}
+            </CollapsibleCard>
+        );
+    }
+
+    // ---------- PITRA DOSH ----------
+    if (Array.isArray(data.rina)) {
+        return (
+            <CollapsibleCard title={title}>
+                {data.pitridosh !== undefined && (
                     <Text style={doshaStyles.status}>
-                        Status: {d.status || d.dosha_status}
+                        Pitra Dosh: {data.pitridosh ? "Present" : "Not Present"}
                     </Text>
-                ) : null}
-
-                {d.description ? (
-                    <Text style={doshaStyles.desc}>{d.description}</Text>
-                ) : null}
-
-                {Array.isArray(d.remedies) && d.remedies.length > 0 && (
-                    <>
-                        <Text style={doshaStyles.remTitle}>Remedies:</Text>
-                        {d.remedies.map((item, idx) => (
-                            <Text key={idx} style={doshaStyles.remItem}>
-                                • {item}
-                            </Text>
-                        ))}
-                    </>
                 )}
-            </View>
-        </CollapsibleCard>
-    );
+
+                {data.info && <Text style={doshaStyles.desc}>{data.info}</Text>}
+
+                {data.rina.map((item, idx) => (
+                    <View key={idx} style={{ marginBottom: 10 }}>
+                        <Text style={doshaStyles.remTitle}>
+                            {item.name} — {item.status ? "Active" : "Inactive"}
+                        </Text>
+                        <Text style={doshaStyles.desc}>{item.info}</Text>
+                    </View>
+                ))}
+            </CollapsibleCard>
+        );
+    }
+
+    // ---------- SADESATI ----------
+    if (Array.isArray(data.sadesati)) {
+        return (
+            <CollapsibleCard title={title}>
+                {data.info && <Text style={doshaStyles.desc}>{data.info}</Text>}
+
+                {data.sadesati.map((p, idx) => (
+                    <View key={idx} style={dashaStyles.row}>
+                        <Text style={dashaStyles.planetText}>
+                            {p.type} {p.phase ? `(${p.phase})` : ""}
+                        </Text>
+                        <Text style={dashaStyles.dateText}>
+                            {p.startDate} → {p.endDate}
+                        </Text>
+                    </View>
+                ))}
+            </CollapsibleCard>
+        );
+    }
+
+    // ---------- FALLBACK (future-proof) ----------
+    return <DataSection title={title} data={data} />;
 };
+
 
 // Dasha table
 const DashaTable = ({ title, data }) => {
@@ -267,137 +416,719 @@ const DashaTable = ({ title, data }) => {
         </CollapsibleCard>
     );
 };
+const RASHI_LABELS = [
+    "Ar", "Ta", "Ge", "Cn", "Le", "Vi",
+    "Li", "Sc", "Sg", "Cp", "Aq", "Pi"
+];
 
-// KP generic table
-const KPTable = ({ title, data }) => {
-    if (!data) return null;
-
-    const d = data.data || data;
+const AshtakVargaTable = ({ title, data }) => {
+    const list = data?.prastarakListData?.prastarakList;
+    if (!Array.isArray(list) || list.length === 0) return null;
 
     return (
         <CollapsibleCard title={title}>
-            {Array.isArray(d) ? (
-                d.map((item, idx) => (
-                    <View key={idx} style={kpStyles.row}>
-                        <Text style={kpStyles.key}>
-                            {String(item.name || item.planet || idx + 1)}
-                        </Text>
-                        <Text style={kpStyles.val}>{JSON.stringify(item)}</Text>
+            {list.map((planetBlock, blockIndex) => (
+                <View key={blockIndex} style={{ marginBottom: 16 }}>
+
+                    {/* PLANET NAME */}
+                    <Text style={{
+                        fontWeight: "700",
+                        fontSize: 14,
+                        color: "#7F1D1D",
+                        marginBottom: 6
+                    }}>
+                        {planetBlock.name} Ashtak Varga
+                    </Text>
+
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View>
+
+                            {/* HEADER */}
+                            <View style={ashtakStyles.headerRow}>
+                                <View style={[ashtakStyles.cell, { width: 90 }]}>
+                                    <Text style={ashtakStyles.headerText}>PLANET</Text>
+                                </View>
+
+                                {RASHI_LABELS.map(r => (
+                                    <View key={r} style={[ashtakStyles.cell, { width: 50 }]}>
+                                        <Text style={ashtakStyles.headerText}>{r}</Text>
+                                    </View>
+                                ))}
+
+                                <View style={[ashtakStyles.cell, { width: 60 }]}>
+                                    <Text style={ashtakStyles.headerText}>TOT</Text>
+                                </View>
+                            </View>
+
+                            {/* ROWS */}
+                            {planetBlock.prastaraks.map((row, rowIndex) => (
+                                <View key={rowIndex} style={ashtakStyles.row}>
+                                    <View style={[ashtakStyles.cell, { width: 90 }]}>
+                                        <Text style={ashtakStyles.cellText}>{row.name}</Text>
+                                    </View>
+
+                                    {row.prastarak.map((val, i) => (
+                                        <View
+                                            key={i}
+                                            style={[ashtakStyles.cell, { width: 50 }]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    ashtakStyles.cellText,
+                                                    val === 1 && ashtakStyles.activeCell
+                                                ]}
+                                            >
+                                                {val}
+                                            </Text>
+                                        </View>
+                                    ))}
+
+                                    <View style={[ashtakStyles.cell, { width: 60 }]}>
+                                        <Text style={ashtakStyles.totalText}>{row.total}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </ScrollView>
+
+                </View>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const ashtakStyles = StyleSheet.create({
+    headerRow: {
+        flexDirection: "row",
+        backgroundColor: "#FEF3C7",
+    },
+    row: {
+        flexDirection: "row",
+        backgroundColor: "#FFF",
+    },
+    cell: {
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        borderWidth: 0.5,
+        borderColor: "#E5E5E5",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    headerText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#7F1D1D",
+    },
+    cellText: {
+        fontSize: 12,
+        color: "#333",
+    },
+    activeCell: {
+        fontWeight: "800",
+        color: "#15803D",
+    },
+    totalText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#1E3A8A",
+    },
+});
+const SarvashtakVargaTable = ({ title, data }) => {
+    const list =
+        data?.sarvashtakaListData?.sarvashtakaList?.[0]?.prastaraks;
+
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    return (
+        <CollapsibleCard title={title}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+
+                    {/* HEADER */}
+                    <View style={sarvaStyles.headerRow}>
+                        <View style={[sarvaStyles.cell, { width: 90 }]}>
+                            <Text style={sarvaStyles.headerText}>PLANET</Text>
+                        </View>
+
+                        {RASHI_LABELS.map(r => (
+                            <View key={r} style={[sarvaStyles.cell, { width: 50 }]}>
+                                <Text style={sarvaStyles.headerText}>{r}</Text>
+                            </View>
+                        ))}
+
+                        <View style={[sarvaStyles.cell, { width: 70 }]}>
+                            <Text style={sarvaStyles.headerText}>TOTAL</Text>
+                        </View>
                     </View>
-                ))
-            ) : typeof d === "object" ? (
-                Object.entries(d).map(([k, v]) => (
-                    <View key={k} style={kpStyles.row}>
-                        <Text style={kpStyles.key}>
-                            {k.replace(/_/g, " ").toUpperCase()}
-                        </Text>
-                        <Text style={kpStyles.val}>
-                            {typeof v === "object" ? JSON.stringify(v) : String(v)}
-                        </Text>
+
+                    {/* ROWS */}
+                    {list.map((row, rowIndex) => (
+                        <View key={rowIndex} style={sarvaStyles.row}>
+                            <View style={[sarvaStyles.cell, { width: 90 }]}>
+                                <Text style={sarvaStyles.planetText}>{row.name}</Text>
+                            </View>
+
+                            {row.sarvashtak.map((val, i) => (
+                                <View key={i} style={[sarvaStyles.cell, { width: 50 }]}>
+                                    <Text
+                                        style={[
+                                            sarvaStyles.valueText,
+                                            val >= 5 && sarvaStyles.strong,
+                                            val <= 2 && sarvaStyles.weak,
+                                        ]}
+                                    >
+                                        {val}
+                                    </Text>
+                                </View>
+                            ))}
+
+                            <View style={[sarvaStyles.cell, { width: 70 }]}>
+                                <Text style={sarvaStyles.totalText}>{row.total}</Text>
+                            </View>
+                        </View>
+                    ))}
+
+                </View>
+            </ScrollView>
+        </CollapsibleCard>
+    );
+};
+const sarvaStyles = StyleSheet.create({
+    headerRow: {
+        flexDirection: "row",
+        backgroundColor: "#FEF3C7",
+    },
+    row: {
+        flexDirection: "row",
+        backgroundColor: "#FFF",
+    },
+    cell: {
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        borderWidth: 0.5,
+        borderColor: "#E5E5E5",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    headerText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#7F1D1D",
+    },
+    planetText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#2C1810",
+    },
+    valueText: {
+        fontSize: 12,
+        color: "#333",
+    },
+    strong: {
+        fontWeight: "800",
+        color: "#166534", // green
+    },
+    weak: {
+        color: "#B91C1C", // red
+    },
+    totalText: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#1E3A8A",
+    },
+});
+const getDashaTitle = (row) =>
+    row.planet || row.yogini || row.rashi || "—";
+
+const getStart = (row) =>
+    row.startDate || row.start || "—";
+
+const getEnd = (row) =>
+    row.endDate || row.end || "—";
+const FlatDashaTable = ({ title, list }) => {
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    return (
+        <CollapsibleCard title={title}>
+            {list.map((row, i) => (
+                <View key={`${title}-${i}`} style={dashaStyles.row}>
+                    <Text style={dashaStyles.planetText}>
+                        {getDashaTitle(row)}
+                    </Text>
+                    <Text style={dashaStyles.dateText}>
+                        {getStart(row)}
+                    </Text>
+                    <Text style={dashaStyles.dateText}>
+                        {getEnd(row)}
+                    </Text>
+                </View>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const CharDashaTable = ({ title, list }) => {
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    return (
+        <CollapsibleCard title={title}>
+            {list.map((row, i) => (
+                <CollapsibleCard
+                    key={`char-${i}`}
+                    title={`${row.rashi} (${row.duration} yrs)`}
+                >
+                    <Text style={dashaStyles.dateText}>
+                        {row.start} → {row.end}
+                    </Text>
+
+                    {row.antarDasha?.map((a, idx) => (
+                        <View key={idx} style={dashaStyles.subRow}>
+                            <Text style={dashaStyles.subPlanet}>
+                                {a.rashi}
+                            </Text>
+                            <Text style={dashaStyles.subDate}>
+                                {a.start} → {a.end}
+                            </Text>
+                        </View>
+                    ))}
+                </CollapsibleCard>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const KP_PLANET_COLUMNS = [
+    { key: "name", label: "PLANET", width: 90 },
+    { key: "house", label: "HOUSE", width: 60 },
+    { key: "rashi", label: "RASHI", width: 90 },
+    { key: "degree", label: "DEGREE", width: 100 },
+    { key: "nakshatra", label: "NAKSHATRA", width: 120 },
+    { key: "subLord", label: "SUB LORD", width: 100 },
+    { key: "isRetrograde", label: "RETRO", width: 70 },
+    { key: "PlanetState", label: "STATE", width: 80 },
+];
+const KPPlanetTable = ({ data }) => {
+    const rows = data?.planetData?.planetList;
+    if (!Array.isArray(rows)) return null;
+
+    return (
+        <CollapsibleCard title="KP Planetary Positions">
+            <ScrollView horizontal>
+                <View>
+                    <View style={planetStyles.headerRow}>
+                        {KP_PLANET_COLUMNS.map(c => (
+                            <Text key={c.key} style={[planetStyles.headerText, { width: c.width }]}>
+                                {c.label}
+                            </Text>
+                        ))}
                     </View>
-                ))
-            ) : (
-                <Text style={kpStyles.val}>{String(d)}</Text>
-            )}
+
+                    {rows.map((row, i) => (
+                        <View key={row.name + i} style={planetStyles.row}>
+                            {KP_PLANET_COLUMNS.map(c => (
+                                <View key={c.key} style={{ width: c.width }}>
+                                    {renderValue(row[c.key])}
+                                </View>
+                            ))}
+                        </View>
+                    ))}
+                </View>
+            </ScrollView>
+        </CollapsibleCard>
+    );
+};
+const KPCuspsTable = ({ data }) => {
+    const rows = data?.cuspsData?.cuspsList;
+    if (!Array.isArray(rows)) return null;
+
+    return (
+        <CollapsibleCard title="KP Cusps Details">
+            {rows.map(c => (
+                <View key={c.house} style={dashaStyles.row}>
+                    <Text style={dashaStyles.planetText}>House {c.house}</Text>
+                    <Text style={dashaStyles.dateText}>
+                        {c.degree} • {c.rashi}
+                    </Text>
+                </View>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const PlanetSignificators = ({ data }) => {
+    const rows = data?.planetSignificatorsData?.planetSignificators;
+    if (!Array.isArray(rows)) return null;
+
+    return (
+        <CollapsibleCard title="Planet Significators">
+            {rows.map((p, i) => (
+                <View key={p.planet} style={{ marginBottom: 10 }}>
+                    <Text style={doshaStyles.remTitle}>{p.planet}</Text>
+
+                    {["Star", "Sub", "Sign", "Own"].map((label, idx) => (
+                        <Text key={idx} style={dataSectionStyles.valueText}>
+                            {label}: {p.significators[idx]?.join(", ") || "—"}
+                        </Text>
+                    ))}
+                </View>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const KPRulingPlanets = ({ data }) => {
+    const r = data?.rulingPlanetsData?.rulingPlanets;
+    if (!r) return null;
+
+    return (
+        <CollapsibleCard title="Ruling Planets">
+            {Object.entries(r).map(([k, v]) => (
+                <Text key={k} style={doshaStyles.status}>
+                    {k.replace(/_/g, " ").toUpperCase()}: {v}
+                </Text>
+            ))}
+        </CollapsibleCard>
+    );
+};
+const HouseSignificators = ({ data }) => {
+    const rows = data?.houseSignificatorsData?.houseSignificators;
+    if (!Array.isArray(rows)) return null;
+
+    return (
+        <CollapsibleCard title="House Significators">
+            {rows.map(h => (
+                <CollapsibleCard key={h.house} title={`House ${h.house}`}>
+                    {["Star", "Sub", "Sign", "Own"].map((label, i) => (
+                        <Text key={i} style={dataSectionStyles.valueText}>
+                            {label}: {h.significators[i]?.join(", ") || "—"}
+                        </Text>
+                    ))}
+                </CollapsibleCard>
+            ))}
         </CollapsibleCard>
     );
 };
 
-// ---------- Chart helpers ----------
-
-// Normalize any chart payload into 12 houses
-const normalizeChartData = (raw) => {
-    if (!raw) return [];
-    const payload = raw.data || raw;
-    let arr = [];
-
-    if (Array.isArray(payload)) {
-        arr = payload;
-    } else if (Array.isArray(payload?.houses)) {
-        arr = payload.houses;
-    } else if (typeof payload === "object") {
-        arr = Object.values(payload).filter((v) => typeof v === "object");
-    }
-
-    const houses = arr.map((h, idx) => {
-        const houseNo = h.house || h.house_no || h.bhava || h.bhava_no || idx + 1;
-        const sign =
-            h.sign ||
-            h.rashi ||
-            h.rashi_name ||
-            h.sign_name ||
-            h.zodiac ||
-            h.zodiac_name;
-        let planets =
-            h.planets ||
-            h.planet ||
-            h.graha ||
-            h.planet_name ||
-            h.graha_name ||
-            [];
-
-        if (typeof planets === "string") {
-            planets = planets.split(",").map((p) => p.trim());
-        }
-        if (!Array.isArray(planets)) planets = [String(planets)];
-
-        return {
-            house: houseNo,
-            sign,
-            planets,
-        };
-    });
-
-    const final = [];
-    for (let i = 0; i < 12; i++) {
-        final[i] = houses[i] || { house: i + 1, sign: "", planets: [] };
-    }
-
-    return final;
-};
-
-// 3x4 grid chart
-const ChartGrid = ({ houses }) => {
-    if (!houses || houses.length === 0) return null;
-    const cells = houses.slice(0, 12);
-
-    const rows = [cells.slice(0, 4), cells.slice(4, 8), cells.slice(8, 12)];
+const NumerologySection = ({ data }) => {
+    const n = data?.core?.numerlogy;
+    if (!n) return null;
 
     return (
-        <View style={chartStyles.grid}>
-            {rows.map((row, rIdx) => (
-                <View key={rIdx} style={chartStyles.gridRow}>
-                    {row.map((cell, cIdx) => (
-                        <View key={cIdx} style={chartStyles.gridCell}>
-                            <Text style={chartStyles.houseNo}>H{cell.house}</Text>
-                            {cell.sign ? (
-                                <Text style={chartStyles.signText}>{cell.sign}</Text>
-                            ) : null}
-                            {cell.planets && cell.planets.length > 0 ? (
-                                <Text style={chartStyles.planetText} numberOfLines={3}>
-                                    {cell.planets.join(", ")}
-                                </Text>
-                            ) : null}
+        <CollapsibleCard title="Numerology">
+            <View style={numerologyStyles.row}>
+                <NumerologyCard label="Radical" value={n.radicalNumber} />
+                <NumerologyCard label="Destiny" value={n.destinyNumber} />
+                <NumerologyCard label="Name" value={n.nameNumber} />
+            </View>
+
+            <View style={{ marginTop: 12 }}>
+                {Object.entries(n.details).map(([k, v]) => (
+                    <View key={k} style={numerologyStyles.detailRow}>
+                        <Text style={numerologyStyles.key}>
+                            {k.replace(/([A-Z])/g, " $1").toUpperCase()}
+                        </Text>
+                        <Text style={numerologyStyles.value}>
+                            {Array.isArray(v) ? v.join(", ") : String(v)}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+        </CollapsibleCard>
+    );
+};
+const numerologyStyles = StyleSheet.create({
+    row: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    detailRow: {
+        marginBottom: 6,
+    },
+    key: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#7F1D1D",
+    },
+    value: {
+        fontSize: 13,
+        color: "#333",
+    },
+});
+
+const KarakaPlanetSection = ({ data }) => {
+    const k = data?.gemini?.karakaPlanetData?.karakDetails;
+    if (!k) return null;
+
+    return (
+        <CollapsibleCard title="Jaimini Karakas">
+            <View style={{ marginBottom: 10 }}>
+                <Text style={karakaStyles.lagna}>
+                    Ascendant: {k.ascendant}
+                </Text>
+                <Text style={karakaStyles.sub}>
+                    Pad Lagna: {k.pad_lagna} | Upapada: {k.up_pad_lagna}
+                </Text>
+                <Text style={karakaStyles.sub}>
+                    Karamsha Lagna: {k.karamsha_lagna}
+                </Text>
+            </View>
+
+            {k.karakaPlanetList.map(item => (
+                <CollapsibleCard key={item.name} title={item.name}>
+                    {Object.entries(item.planet).map(([key, value]) => (
+                        <View key={key} style={karakaStyles.row}>
+                            <Text style={karakaStyles.key}>
+                                {key.replace(/_/g, " ").toUpperCase()}
+                            </Text>
+                            <Text style={karakaStyles.value}>
+                                {String(value)}
+                            </Text>
                         </View>
                     ))}
-                </View>
+                </CollapsibleCard>
             ))}
+        </CollapsibleCard>
+    );
+};
+const karakaStyles = StyleSheet.create({
+    lagna: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#7F1D1D",
+    },
+    sub: {
+        fontSize: 12,
+        color: "#555",
+    },
+    row: {
+        marginBottom: 6,
+    },
+    key: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#7F1D1D",
+    },
+    value: {
+        fontSize: 13,
+        color: "#333",
+    },
+});
+
+const PredictionBlock = ({ title, html }) => {
+    if (!html || !html.trim()) return null;
+
+    return (
+        <CollapsibleCard title={title}>
+            <AstroTextRenderer html={html} />
+        </CollapsibleCard>
+    );
+};
+
+const PredictionSection = ({ data }) => {
+    if (!data) return null;
+
+    return (
+        <CollapsibleCard title="Predictions">
+            {data.ascendant && (
+                <PredictionBlock title="Ascendant" html={data.ascendant} />
+            )}
+
+            {data.sign && (
+                <PredictionBlock title="Moon Sign" html={data.sign} />
+            )}
+
+            {data.planets?.map((p, i) => (
+                <PredictionBlock
+                    key={`planet-${i}`}
+                    title={`Planet in House ${p.house}`}
+                    html={p.prediction}
+                />
+            ))}
+
+            {data.bhav?.map((b, i) => (
+                <PredictionBlock
+                    key={`bhav-${i}`}
+                    title={b.name}
+                    html={b.prediction}
+                />
+            ))}
+
+            {data.nakshatra && (
+                <PredictionBlock title="Nakshatra" html={data.nakshatra} />
+            )}
+
+            {data.dosha?.map((d, i) => (
+                d.prediction ? (
+                    <PredictionBlock
+                        key={`dosha-${i}`}
+                        title={d.name.toUpperCase()}
+                        html={d.prediction}
+                    />
+                ) : null
+            ))}
+        </CollapsibleCard>
+    );
+};
+
+
+const NumerologyCard = ({ label, value }) => (
+    <View style={{
+        width: "30%",
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: "#F9EFE5",
+        alignItems: "center"
+    }}>
+        <Text style={{ fontSize: 12, color: "#7F1D1D" }}>{label}</Text>
+        <Text style={{ fontSize: 22, fontWeight: "bold" }}>{value}</Text>
+    </View>
+);
+
+
+// ---------- Chart helpers ----------
+
+
+const NORTH_INDIAN_PATHS = [
+    "M10 10L175 10L92.5 87.5L10 10",
+    "M175 10L340 10L257.5 87.5L175 10",
+    "M92.5 87.5L10 165L10 10",
+    "M92.5 87.5L175 165L257.5 87.5L175 10",
+    "M257.5 87.5L340 165L340 10",
+    "M92.5,87.5L175,165L92.5,242.5L10,165",
+    "M257.5,87.5L340,165L257.5,242.5L175,165",
+    "M92.5,242.5L10,320L10,165",
+    "M175,165L257.5,242.5L175,320L92.5,242.5",
+    "M92.5,242.5L175,320L10,320",
+    "M257.5,242.5L340,320L175,320",
+    "M340,165L340,320L257.5,242.5",
+];
+
+const NORTH_INDIAN_TEXT_POSITIONS = [
+    { x: 175, y: 90 },
+    { x: 92.5, y: 45 },
+    { x: 45, y: 90 },
+    { x: 90, y: 170 },
+    { x: 45, y: 250 },
+    { x: 92.5, y: 290 },
+    { x: 175, y: 250 },
+    { x: 257.5, y: 290 },
+    { x: 305, y: 250 },
+    { x: 260, y: 170 },
+    { x: 305, y: 90 },
+    { x: 257.5, y: 45 },
+];
+const reorderChartForNorthIndian = (chart) => {
+    if (!Array.isArray(chart)) return [];
+
+    // 1️⃣ Find Lagna sign
+    const lagnaRashi =
+        chart.find(h => h.ascendant === true)?.rashiIndex || 1;
+
+    // 2️⃣ Create array indexed by display rashi
+    const slotMap = {};
+
+    chart.forEach(h => {
+        const displayIndex =
+            ((h.rashiIndex - lagnaRashi + 12) % 12); // 0 → 11
+
+        slotMap[displayIndex] = h;
+    });
+
+    // 3️⃣ Return ordered array for SVG slots
+    return Array.from({ length: 12 }, (_, i) => slotMap[i] || null);
+};
+
+const NorthIndianSvgChart = ({ data }) => {
+    const chart =
+        data?.chartData?.chart ||
+        data?.data?.chartData?.chart ||
+        data?.chart;
+
+    if (!Array.isArray(chart)) return null;
+
+    const orderedChart = reorderChartForNorthIndian(chart);
+
+    return (
+        <View style={{ alignItems: "center", height: 360 }}>
+            <Svg width={350} height={350} viewBox="0 0 350 350">
+                {/* Chart lines */}
+                {NORTH_INDIAN_PATHS.map((d, i) => (
+                    <Path
+                        key={i}
+                        d={d}
+                        fill="none"
+                        stroke="#980d0d"
+                        strokeWidth={2}
+                    />
+                ))}
+
+                {/* Signs + planets */}
+                {orderedChart.map((signData, index) => {
+                    if (!signData) return null;
+                    const pos = NORTH_INDIAN_TEXT_POSITIONS[index];
+                    if (!pos) return null;
+
+                    return (
+                        <G key={index}>
+                            <SvgText
+                                x={pos.x}
+                                y={pos.y}
+                                textAnchor="middle"
+                                fontSize={11}
+                                fontWeight="bold"
+                                fill="#1F2937"
+                            >
+                                {signData.rashiIndex}
+                            </SvgText>
+
+                            {signData.rashi && (
+                                <SvgText
+                                    x={pos.x}
+                                    y={pos.y + 12}
+                                    textAnchor="middle"
+                                    fontSize={9}
+                                    fill="#6B7280"
+                                >
+                                    {signData.rashi}
+                                </SvgText>
+                            )}
+
+                            {signData.planets?.map((planet, i) => (
+                                <SvgText
+                                    key={i}
+                                    x={pos.x + i * 15 - 22}
+                                    y={pos.y - 15}
+                                    textAnchor="middle"
+                                    fontSize={9}
+                                    fontWeight="600"
+                                    fill={planet.color || "#E15602"}
+                                >
+                                    {planet.name}
+                                </SvgText>
+                            ))}
+                        </G>
+                    );
+                })}
+            </Svg>
         </View>
     );
 };
 
-const ChartSection = ({ title, data }) => {
-    const houses = normalizeChartData(data);
-    if (!houses.length) return null;
 
-    const label = title.replace(/_/g, " ").toUpperCase();
+
+
+
+const ChartSection = ({ title, data }) => {
+    if (!data) return null;
+
+    const label = title
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/^\w/, c => c.toUpperCase());
+
 
     return (
-        <CollapsibleCard title={`${label} CHART`}>
-            <ChartGrid houses={houses} />
+        <CollapsibleCard title={`${label} Chart`}>
+            <NorthIndianSvgChart data={data} />
         </CollapsibleCard>
     );
 };
+
 
 const TabButton = ({ tab, activeTab, onPress }) => (
     <TouchableOpacity
@@ -448,7 +1179,6 @@ const KundliDetailScreen = ({ route }) => {
     const [prediction, setPrediction] = useState(null);
 
     const reqBodyRef = useRef(null);
-
     // ---------- Basic + general tab ----------
     const fetchBasicDetails = async () => {
         try {
@@ -520,7 +1250,6 @@ const KundliDetailScreen = ({ route }) => {
                         req
                     ),
                 ]);
-
             // Astro data (you logged astrodata nested structure)
             const astroNorm = normalizeApiResponse(astroRes.data, {
                 innerKey: "astrodata",
@@ -546,12 +1275,92 @@ const KundliDetailScreen = ({ route }) => {
             // Predictions
             const predictionNorm = normalizeApiResponse(predictionsRes.data);
             setPrediction(predictionNorm);
+
         } catch (err) {
             console.error("Error fetching basic/general details:", err);
         } finally {
             setInitialLoading(false);
             setDataLoading((prev) => ({ ...prev, general: false }));
         }
+    };
+    const normalizeBasicTab = ({ astroNorm, birthNormRaw }) => {
+        if (!astroNorm || !birthNormRaw) return null;
+
+        return [
+            {
+                title: "Birth Details",
+                data: {
+                    Name: birthNormRaw.name,
+                    Date: `${birthNormRaw.day}-${birthNormRaw.month}-${birthNormRaw.year}`,
+                    Time: `${birthNormRaw.hour}:${birthNormRaw.min}`,
+                    Place: birthNormRaw.place,
+                    Gender: birthNormRaw.gender,
+                    Sunrise: birthNormRaw.sunrise,
+                    Sunset: birthNormRaw.sunset,
+                    Day: birthNormRaw.dayname,
+                    Masa: birthNormRaw.masa,
+                    "Vikram Samvat": birthNormRaw.vikramSamvat,
+                    "Shaka Samvat": birthNormRaw.shakSamvat,
+                    Ayanamsha: birthNormRaw.ayanamsha?.degree,
+                    "Ayanamsha Type": birthNormRaw.ayanamsha?.ayanamsha_name,
+                },
+            },
+            {
+                title: "Astro Profile",
+                data: {
+                    Ascendant: astroNorm.ascendant,
+                    "Moon Sign": astroNorm.sign,
+                    "Sign Lord": astroNorm.signLord,
+                    Nakshatra: astroNorm.naksahtra,
+                    "Nakshatra Lord": astroNorm.nakshatraLord,
+                    Charan: astroNorm.charan,
+                    Varna: astroNorm.varna,
+                    Vashya: astroNorm.vashya,
+                    Yoni: astroNorm.yoni,
+                    Gana: astroNorm.gana,
+                    Nadi: astroNorm.nadi,
+                    Tatva: astroNorm.tatva,
+                    Paya: astroNorm.paya,
+                    "Name Alphabet (Hindi)": astroNorm.nameAlphabetHindi,
+                    "Name Alphabet (English)": astroNorm.nameAlphabetEnglish,
+                },
+            },
+            {
+                title: "Panchang at Birth",
+                data: {
+                    Tithi: astroNorm.tithi?.name,
+                    "Tithi From": astroNorm.tithi?.startDateTime,
+                    "Tithi To": astroNorm.tithi?.endDateTime,
+                    Yog: astroNorm.yog?.name,
+                    "Yog From": astroNorm.yog?.startDateTime,
+                    "Yog To": astroNorm.yog?.endDateTime,
+                    Karan: astroNorm.karan?.name,
+                    Sunrise: astroNorm.sunrise,
+                    Sunset: astroNorm.sunset,
+                },
+            },
+        ];
+    };
+
+    const normalizePlanetaryData = (planetData) => {
+        if (!planetData) return null;
+
+        return {
+            planets:
+                planetData?.allPlanets?.planetData?.planetList || [],
+
+            upgraha:
+                planetData?.upgraha?.upgrahaData?.upgrahaList || [],
+
+            dashamBhav:
+                planetData?.dashamBhav?.dashamBhavData?.dashamBhavList || [],
+
+            ashtakVarga:
+                planetData?.ashtak?.prastarakListData?.prastarakList || [],
+
+            sarvashtak:
+                planetData?.sarvashtak?.sarvashtakaListData?.sarvashtakaList || [],
+        };
     };
 
     // ---------- Tab-specific loaders ----------
@@ -891,19 +1700,27 @@ const KundliDetailScreen = ({ route }) => {
         }
 
         switch (activeTab) {
-            case "general":
+            case "general": {
+                const sections = normalizeBasicTab({
+                    astroNorm: astroData,
+                    birthNormRaw: birthData,
+                });
+
+                if (!sections) return null;
+
                 return (
                     <>
-                        <DataSection title="Astro Data" data={astroData} />
-                        <DataSection title="Birth Details" data={birthData} />
-                        <DataSection title="Planet Friendship" data={friendship} />
-                        <DataSection title="Predictions Summary" data={prediction} />
-                        <DataSection
-                            title="Numerology Overview"
-                            data={numerology?.core}
-                        />
+                        {sections.map((section, index) => (
+                            <DataSection
+                                key={index}
+                                title={section.title}
+                                data={section.data}
+                            />
+                        ))}
                     </>
                 );
+            }
+
 
             case "charts":
                 if (!charts) return null;
@@ -915,23 +1732,47 @@ const KundliDetailScreen = ({ route }) => {
                     </>
                 );
 
-            case "planet":
+            case "planet": {
                 if (!planetData) return null;
+
+                const normalized = normalizePlanetaryData(planetData);
+
                 return (
                     <>
+                        {/* 🌍 Planet Positions */}
                         <PlanetTable
                             title="Planet Positions"
-                            rows={planetData?.allPlanets}
+                            rows={normalized.planets}
                         />
-                        <PlanetTable title="Upgraha" rows={planetData?.upgraha} />
+
+                        {/* ☄️ Upgraha */}
+                        <PlanetTable
+                            title="Upgraha"
+                            rows={normalized.upgraha}
+                        />
+
+                        {/* 🏠 Dasham Bhav Madhya */}
                         <DataSection
                             title="Dasham Bhav Madhya"
-                            data={planetData?.dashamBhav}
+                            data={normalized.dashamBhav}
                         />
-                        <DataSection title="Ashtak Varga" data={planetData?.ashtak} />
-                        <DataSection title="Sarvashtak" data={planetData?.sarvashtak} />
+
+                        {/* 🔢 Ashtak Varga */}
+                        <AshtakVargaTable
+                            title="Ashtak Varga (Prastarak)"
+                            data={planetData?.ashtak}
+                        />
+
+
+                        {/* 📊 Sarvashtak Varga */}
+                        <SarvashtakVargaTable
+                            title="Sarvashtak Varga"
+                            data={planetData?.sarvashtak}
+                        />
+
                     </>
                 );
+            }
 
             case "dosha":
                 if (!dosha) return null;
@@ -948,24 +1789,35 @@ const KundliDetailScreen = ({ route }) => {
                 if (!dasha) return null;
                 return (
                     <>
-                        <DashaTable
+                        <FlatDashaTable
                             title="Vimshottari Maha Dasha"
-                            data={dasha?.vimshottari}
+                            list={dasha?.vimshottari?.vimshottaryMahaDashaData?.vimshottaryMahaDashaList}
                         />
-                        <DashaTable
+
+                        <FlatDashaTable
                             title="Current Vimshottari Dasha"
-                            data={dasha?.vimCurrent}
+                            list={dasha?.vimCurrent?.vimshottaryCurrentDashaData?.vimshottaryCurrentDashaList}
                         />
-                        <DashaTable title="Yogini Maha Dasha" data={dasha?.yogini} />
-                        <DashaTable
+
+                        <FlatDashaTable
+                            title="Yogini Maha Dasha"
+                            list={dasha?.yogini?.yoginiMahaDashaData?.yoginiMahaDashaList}
+                        />
+
+                        <FlatDashaTable
                             title="Current Yogini Dasha"
-                            data={dasha?.yoginiCurrent}
+                            list={dasha?.yoginiCurrent?.yoginiCurrentDashaData?.yoginiCurrentDashaList}
                         />
-                        <DashaTable title="Char Dasha" data={dasha?.char} />
-                        <DashaTable
+                        <CharDashaTable
+                            title="Char Dasha"
+                            list={dasha?.char?.charDashaData?.charDashaList}
+                        />
+
+                        <FlatDashaTable
                             title="Current Char Dasha"
-                            data={dasha?.charCurrent}
+                            list={dasha?.charCurrent?.charCurrentDashaData?.currentDashaList}
                         />
+
                     </>
                 );
 
@@ -973,32 +1825,29 @@ const KundliDetailScreen = ({ route }) => {
                 if (!kp) return null;
                 return (
                     <>
-                        <KPTable title="KP Birth Data" data={kp?.birth} />
-                        <ChartSection title="KP Cusps Chart" data={kp?.cuspsChart} />
-                        <ChartSection title="KP Birth Chart" data={kp?.birthChart} />
-                        <KPTable title="KP Planets" data={kp?.planets} />
-                        <KPTable title="KP Cusps Data" data={kp?.cuspsData} />
-                        <KPTable title="KP Significators" data={kp?.significators} />
-                        <KPTable title="Ruling Planets" data={kp?.ruling} />
-                        <KPTable title="House Significators" data={kp?.houseSign} />
+                        <DataSection title="KP Birth Details" data={kp?.birth?.birthdata} />
+
+                        <ChartSection title="KP Cusps" data={kp?.cuspsChart} />
+                        <ChartSection title="KP Birth" data={kp?.birthChart} />
+
+                        <KPPlanetTable data={kp?.planets} />
+                        <KPCuspsTable data={kp?.cuspsData} />
+
+                        <PlanetSignificators data={kp?.significators} />
+                        <KPRulingPlanets data={kp?.ruling} />
+                        <HouseSignificators data={kp?.houseSign} />
+
                     </>
                 );
 
             case "other":
                 return (
                     <>
-                        <DataSection
-                            title="Numerology Core Details"
-                            data={numerology?.core}
-                        />
-                        <DataSection title="Predictions Summary" data={prediction} />
-                        <DataSection
-                            title="Gemini System Data"
-                            data={numerology?.gemini}
-                        />
+                        <NumerologySection data={numerology} />
+                        <PredictionSection data={prediction} />
+                        <KarakaPlanetSection data={numerology} />
                     </>
                 );
-
             default:
                 return null;
         }
@@ -1007,7 +1856,7 @@ const KundliDetailScreen = ({ route }) => {
         dataLoading,
         astroData,
         birthData,
-        friendship,
+        // friendship,
         charts,
         planetData,
         dosha,
@@ -1027,6 +1876,20 @@ const KundliDetailScreen = ({ route }) => {
             </View>
         );
     }
+const formatDate = (basic) => {
+  if (!basic) return "...";
+
+  const date = new Date(
+    basic.year,
+    basic.month - 1, // JS months are 0-based
+    basic.day
+  );
+
+  const weekday = date.toLocaleString("en-US", { weekday: "short" });
+  const month = date.toLocaleString("en-US", { month: "short" });
+
+  return `${weekday} ${month} ${basic.day} ${basic.year}`;
+};
 
     return (
         <View style={styles.fullScreenContainer}>
@@ -1037,9 +1900,7 @@ const KundliDetailScreen = ({ route }) => {
                 <View style={styles.dateRow}>
                     <Icon name="calendar" size={14} color="#555" />
                     <Text style={styles.subDetail}>
-                        {basic
-                            ? `${basic.day}/${basic.month}/${basic.year}`
-                            : "..."}
+                        {formatDate(basic)}
                     </Text>
                     <Icon
                         name="clock-outline"
@@ -1236,40 +2097,7 @@ const dataSectionStyles = StyleSheet.create({
     },
 });
 
-const chartStyles = StyleSheet.create({
-    grid: {
-        borderWidth: 1,
-        borderColor: "#D6CEC2",
-        borderRadius: 10,
-        overflow: "hidden",
-    },
-    gridRow: {
-        flexDirection: "row",
-    },
-    gridCell: {
-        flex: 1,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: "#D6CEC2",
-        padding: 6,
-        minHeight: 70,
-    },
-    houseNo: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#7F1D1D",
-        marginBottom: 2,
-    },
-    signText: {
-        fontSize: 11,
-        color: "#444",
-        marginBottom: 2,
-    },
-    planetText: {
-        fontSize: 11,
-        color: "#222",
-    },
-});
+
 
 const tabStyles = StyleSheet.create({
     tabContainer: {
@@ -1278,7 +2106,7 @@ const tabStyles = StyleSheet.create({
         backgroundColor: "#F8F4EF",
         // borderBottomWidth: 1,
         borderBottomColor: "#DDD",
-        maxHeight:50
+        maxHeight: 50
     },
 
     tab: {
@@ -1323,30 +2151,32 @@ const planetStyles = StyleSheet.create({
     headerRow: {
         flexDirection: "row",
         backgroundColor: "#FEF3C7",
-        paddingHorizontal: 8,
-        paddingVertical: 6,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
     },
-    headerText: {
-        minWidth: 80,
-        fontSize: 11,
-        fontWeight: "700",
-        color: "#7F1D1D",
-        marginRight: 8,
-    },
+
     row: {
         flexDirection: "row",
-        paddingHorizontal: 8,
-        paddingVertical: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3EFE9",
+        backgroundColor: "#FFF",
     },
+
     cell: {
-        minWidth: 80,
-        fontSize: 11,
-        color: "#333",
-        marginRight: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 6,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: "#E5E5E5",
+        justifyContent: "center",
+    },
+
+    headerText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#7F1D1D",
+        textAlign: "center",
     },
 });
+
 
 const doshaStyles = StyleSheet.create({
     block: {
@@ -1378,6 +2208,24 @@ const doshaStyles = StyleSheet.create({
 });
 
 const dashaStyles = StyleSheet.create({
+    subRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingVertical: 4,
+        paddingLeft: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3EFE9",
+    },
+    subPlanet: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#4A2F1D",
+    },
+    subDate: {
+        fontSize: 11,
+        color: "#555",
+    },
+
     row: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -1399,21 +2247,3 @@ const dashaStyles = StyleSheet.create({
     },
 });
 
-const kpStyles = StyleSheet.create({
-    row: {
-        marginBottom: 6,
-        paddingBottom: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3EFE9",
-    },
-    key: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#2C1810",
-        marginBottom: 2,
-    },
-    val: {
-        fontSize: 12,
-        color: "#444",
-    },
-});

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,81 +9,141 @@ import {
   TextInput,
   Alert,
   ScrollView,
-} from 'react-native';
-import MyStatusBar from '../components/MyStatusbar';
-import MyLoader from '../components/MyLoader';
-import TranslateText from '../language/TranslatedText';
-import { Fonts, Sizes } from '../assets/style';
-import { SCREEN_WIDTH } from '../config/Screen';
-import LoginArrow from '../svgicons/LoginArrow';
-import OrIcon from '../svgicons/OrIcon';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+} from "react-native";
+import MyStatusBar from "../components/MyStatusbar";
+import MyLoader from "../components/MyLoader";
+import TranslateText from "../language/TranslatedText";
+import { Fonts, Sizes } from "../assets/style";
+import { SCREEN_WIDTH } from "../config/Screen";
+import LoginArrow from "../svgicons/LoginArrow";
+import OrIcon from "../svgicons/OrIcon";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
-import { colors } from '../config/Constants1';
-import api from './../apiConfig';
-import axios from 'axios';
+import { colors } from "../config/Constants1";
+import api from "./../apiConfig";
+import axios from "axios";
+import Toast from "react-native-toast-message";
 
 const LoginScreen = (props) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [callingCode, setCallingCode] = useState('91'); // default India
 
+  // Switch UI
+  const [loginType, setLoginType] = useState("phone");
+
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [callingCode, setCallingCode] = useState("91");
+
+  const [email, setEmail] = useState("");
+
+  // --------------------------------------------------------
+  // PHONE LOGIN
+  // --------------------------------------------------------
   const loginWithPhone = async () => {
     const phoneRegex = /^\d{10}$/;
+
     if (!phoneNumber) {
-      Alert.alert('Warning', 'Please enter mobile number');
+      Alert.alert("Warning", "Please enter mobile number");
       return;
     }
     if (!phoneRegex.test(phoneNumber)) {
-      Alert.alert('Warning', 'Please enter correct mobile number');
+      Alert.alert("Warning", "Please enter correct mobile number");
       return;
     }
 
     setIsLoading(true);
+
     try {
-      // if (phoneNumber == '9828719021') {
-      //   props.navigation.navigate('Otp', { phoneNumber, callingCode });
-      // }
-      const response = await axios.post(`${api}/customers/customer-login`, {
-        phoneNumber,
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await axios.post(
+        `${api}/customers/customer-login`,
+        { phoneNumber },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
       const data = response.data;
-      console.log('Login Response:', data);
 
       if (data.success === true) {
-        Alert.alert('Success', data.message || 'OTP sent successfully!');
-        props.navigation.navigate('Otp', { phoneNumber, callingCode,newCustomer : data?.message === 'New customer added successfully' ? true : false});
+        Toast.show({
+          type: "success",
+          text1: "OTP Sent!",
+          text2: data.message || "OTP sent successfully!",
+        });
+
+        props.navigation.navigate("Otp", {
+          phoneNumber,
+          callingCode,
+          newCustomer:
+            data?.message === "New customer added successfully" ? true : false,
+        });
       } else {
-        Alert.alert('Login Failed', data.message || 'Something went wrong.');
-        props.navigation.navigate('Otp', { phoneNumber, callingCode });
+        Alert.alert("Login Failed", data.message || "Something went wrong.");
       }
     } catch (error) {
-      console.error('Login API Error:', error);
-      Alert.alert('Error', 'Unable to login. Please try again later.');
+      console.error("Phone Login API Error:", error);
+      Alert.alert("Error", "Unable to login. Please try again later.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignup = () => {
-    if (!phoneNumber) {
-      Alert.alert('Warning', 'Please enter mobile number');
+  // --------------------------------------------------------
+  // EMAIL LOGIN
+  // --------------------------------------------------------
+  const loginWithEmail = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email) {
+      Alert.alert("Warning", "Please enter email");
       return;
     }
-    Alert.alert('Success', `Signup button clicked for +${callingCode}${phoneNumber}`);
-    props.navigation.navigate('SignUp', { phoneNumber, callingCode });
+    if (!emailRegex.test(email)) {
+      Alert.alert("Warning", "Please enter valid email");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post(
+        `${api}/customers/customer-login`,
+        { email },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      const data = response.data;
+
+      if (data.success === true) {
+        Toast.show({
+          type: "success",
+          text1: "OTP Sent!",
+          text2: data.message || "OTP sent successfully!",
+        });
+        props.navigation.navigate("Otp", {
+          email,
+          newCustomer:
+            data?.message === "New customer added successfully" ? true : false,
+        });
+      } else {
+        Alert.alert("Login Failed", data.message || "Something went wrong.");
+      }
+    } catch (error) {
+      console.error("Email Login API Error:", error);
+      Alert.alert("Error", "Unable to login. Try again later.");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
   return (
     <ScrollView style={styles.container}>
       <MyStatusBar backgroundColor={colors.statusBarBg} barStyle="dark-content" />
       <MyLoader isVisible={isLoading} />
 
-      {/* Logo Section */}
+      {/* TOP LOGO */}
       <View style={styles.logoView}>
-        <Image source={require('../assets/images/newLogo.png')} style={styles.loginLogo} />
+        <Image
+          source={require("../assets/images/newLogo.png")}
+          style={styles.loginLogo}
+        />
         <Text style={styles.loginImageText1}>
           <TranslateText title="AstroBook" />
         </Text>
@@ -92,71 +152,138 @@ const LoginScreen = (props) => {
         </Text>
       </View>
 
-      {/* Input Section */}
-      <View style={styles.inputView}>
-        <View style={styles.phoneInputWrapper}>
-          <Text style={styles.callingCodeText}>+{callingCode}</Text>
-          <TextInput
-            value={phoneNumber}
-            onChangeText={(text) => {
-              if (/^\d{0,10}$/.test(text)) setPhoneNumber(text);
-            }}
-            keyboardType="number-pad"
-            placeholder="Phone Number"
-            style={styles.phoneTextInput}
-          />
-        </View>
-        {/* <TouchableOpacity style={styles.loginBtn} onPress={handleSignup}>
-          <Text />
-          <Text style={styles.loginText}>SIGN UP</Text>
-        </TouchableOpacity> */}
-        <TouchableOpacity style={styles.loginBtn} onPress={loginWithPhone}>
-          <Text />
-          <Text style={styles.loginText}><TranslateText title="GET OTP" /></Text>
-          <LoginArrow />
+      {/* LOGIN SWITCH TABS */}
+      <Text style={[styles.loginSignupText]}>
+
+        <TranslateText title="Logging in Globally? Choose Email Login" />
+      </Text>
+      <View style={styles.switchRow}>
+
+        <TouchableOpacity
+          onPress={() => setLoginType("phone")}
+          style={[
+            styles.switchBtn,
+            loginType === "phone" && styles.activeSwitch,
+          ]}
+        >
+          <Text
+            style={[
+              styles.switchText,
+              loginType === "phone" && styles.activeSwitchText,
+            ]}
+          >
+            Phone Login
+          </Text>
         </TouchableOpacity>
 
-        <Text style={styles.loginSignupText}>
-          <TranslateText title=" By Signing up, you agree to our " />
-          <Text style={styles.linkText} onPress={() => Linking.openURL('https://astrobook.co.in/terms-of-use')}>
-            <TranslateText title="Term of Use " />
+        <TouchableOpacity
+          onPress={() => setLoginType("email")}
+          style={[
+            styles.switchBtn,
+            loginType === "email" && styles.activeSwitch,
+          ]}
+        >
+          <Text
+            style={[
+              styles.switchText,
+              loginType === "email" && styles.activeSwitchText,
+            ]}
+          >
+            Email Login
           </Text>
-          <TranslateText title="and " />
-          <Text style={styles.linkText} onPress={() => Linking.openURL('https://astrobook.co.in/privacy-policy')}>
-            <TranslateText title="Privacy Policy" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.inputView}>
+        {/* ------------------------ PHONE UI ------------------------ */}
+        {loginType === "phone" && (
+          <>
+            <View style={styles.phoneInputWrapper}>
+              <Text style={styles.callingCodeText}>+{callingCode}</Text>
+
+              <TextInput
+                value={phoneNumber}
+                onChangeText={(text) => {
+                  if (/^\d{0,10}$/.test(text)) setPhoneNumber(text);
+                }}
+                keyboardType="number-pad"
+                placeholder="Phone Number"
+                style={styles.phoneTextInput}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.loginBtn} onPress={loginWithPhone}>
+              <Text />
+              <Text style={styles.loginText}>
+                <TranslateText title="GET OTP" />
+              </Text>
+              <LoginArrow />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ------------------------ EMAIL UI ------------------------ */}
+        {loginType === "email" && (
+          <>
+            <View style={styles.phoneInputWrapper}>
+              <Ionicons name="mail-outline" size={20} color="#444" />
+              <TextInput
+                value={email}
+                onChangeText={(t) => setEmail(t)}
+                placeholder="Enter Email"
+                style={styles.phoneTextInput}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <TouchableOpacity style={styles.loginBtn} onPress={loginWithEmail}>
+              <Text />
+              <Text style={styles.loginText}>GET EMAIL OTP</Text>
+              <LoginArrow />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Disclaimer */}
+        <Text style={styles.loginSignupText}>
+          By signing up, you agree to our{" "}
+          <Text
+            style={styles.linkText}
+            onPress={() => props.navigation.navigate("TermsConditionsScreen")}
+          >
+            Terms of Use{" "}
+          </Text>
+          and{" "}
+          <Text
+            style={styles.linkText}
+            onPress={() => props.navigation.navigate("PrivacyPolicyScreen")}
+          >
+            Privacy Policy
           </Text>
         </Text>
 
-        <View style={styles.orIconWrapper}>
-          <OrIcon width={SCREEN_WIDTH * 0.9} />
-        </View>
+        {/* Stats */}
+        <View style={styles.statsRow}>
 
-        {/* Google & Facebook Login Buttons (placeholder, no library) */}
-        <View style={styles.socialLoginView}>
-          <TouchableOpacity style={styles.socialBtn} onPress={() => Alert.alert('Info', 'Google Login coming soon')}>
-            <Ionicons name="call" color="#039ce3ff" size={24} />
-            <Text style={styles.socialText}><TranslateText title="TrueCaller" /></Text>
-          </TouchableOpacity>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>50K+</Text>
+            <Text style={styles.statLabel}>Consultations</Text>
+          </View>
 
-          {/* <TouchableOpacity style={styles.socialBtn} onPress={() => Alert.alert('Info', 'Facebook Login coming soon')}>
-            <FacebookIcon width={30} height={30} />
-            <Text style={styles.socialText}><TranslateText title="Facebook" /></Text>
-          </TouchableOpacity> */}
+          <View style={styles.separator} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>100%</Text>
+            <Text style={styles.statLabel}>Privacy</Text>
+          </View>
+
+          <View style={styles.separator} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>20+</Text>
+            <Text style={styles.statLabel}>Years of Exp.</Text>
+          </View>
+
         </View>
-       <View style={styles.statsRow}>
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>50K+</Text>
-    <Text style={styles.statLabel}>Consultations</Text>
-  </View>
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>20+</Text>
-    <Text style={styles.statLabel}>Years of Experience</Text>
-  </View>
-  <View style={[styles.statBox, { borderRightWidth: 0 }]}>
-    <Text style={styles.statNumber}>100%</Text>
-    <Text style={styles.statLabel}>Privacy</Text>
-  </View>
-</View>
 
       </View>
     </ScrollView>
@@ -164,56 +291,154 @@ const LoginScreen = (props) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  logoView: { flex: 0.45, justifyContent: 'center', alignItems: 'center', backgroundColor: '#db9a4a', paddingBottom: 15 },
-  loginLogo: { width: SCREEN_WIDTH * 0.7, height: SCREEN_WIDTH * 0.4, resizeMode: 'contain' },
-  loginImageText: { color: '#000', textAlign: 'center', ...Fonts.primaryHelvetica, fontWeight: '700', fontSize: 18 },
-  loginImageText1: { color: '#000', textAlign: 'center', ...Fonts.primaryHelvetica, fontWeight: '700', fontSize: 50 },
-  inputView: { flex: 0.55, paddingHorizontal: 15, paddingTop: 40 },
-  phoneInputWrapper: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderColor: '#ccc', paddingVertical: 5, marginBottom: 20 },
-  callingCodeText: { fontSize: 16, color: '#000' },
-  phoneTextInput: { flex: 1, fontSize: 16, color: '#000', paddingVertical: 5, marginLeft: 5 },
-  loginBtn: { backgroundColor: '#db9a4a', borderRadius: 100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, marginTop: 20 },
-  loginText: { color: '#fff', textAlign: 'center', ...Fonts.primaryHelvetica, fontWeight: '500', fontSize: 16 },
-  loginSignupText: { color: '#000', textAlign: 'center', ...Fonts.primaryHelvetica, fontWeight: '500', fontSize: 12, marginTop: 15 },
-  linkText: { textDecorationLine: 'underline' },
-  orIconWrapper: { marginTop: Sizes.fixPadding * 4 },
-  socialLoginView: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 },
-  socialBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 0.3, justifyContent: 'center', paddingVertical: 8, borderRadius: 8, width: SCREEN_WIDTH * 0.4, gap: 6 },
-  socialText: { color: '#000', ...Fonts.primaryHelvetica, fontWeight: '500', fontSize: 14 },
-    statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 80,
-    // backgroundColor: '#fff7ef',
-    // borderRadius: 16,
-    paddingVertical: 15,
-    paddingHorizontal: 2,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 3,
-    // elevation: 2,
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  logoView: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#db9a4a",
+    paddingBottom: 15,
+    paddingTop: 40,
   },
-  statBox: {
+
+  loginLogo: {
+    width: SCREEN_WIDTH * 0.7,
+    height: SCREEN_WIDTH * 0.4,
+    resizeMode: "contain",
+  },
+
+  loginImageText1: {
+    color: "#000",
+    ...Fonts.primaryHelvetica,
+    fontSize: 50,
+    fontWeight: "700",
+  },
+
+  loginImageText: {
+    color: "#000",
+    ...Fonts.primaryHelvetica,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
+    marginHorizontal: 20,
+  },
+
+  switchBtn: {
     flex: 1,
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#e5caa0',
+    paddingVertical: 12,
+    backgroundColor: "#eee",
+    borderRadius: 8,
+    marginHorizontal: 5,
   },
+
+  activeSwitch: {
+    backgroundColor: "#db9a4a",
+  },
+
+  switchText: {
+    textAlign: "center",
+    fontSize: 15,
+    color: "#555",
+  },
+
+  activeSwitchText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  inputView: { paddingHorizontal: 15, marginTop: 25 },
+
+  phoneInputWrapper: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#ccc",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+
+  callingCodeText: { fontSize: 16 },
+
+  phoneTextInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+  },
+
+  emailWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderColor: "#ccc",
+  },
+
+  emailInput: {
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 16,
+  },
+
+  loginBtn: {
+    backgroundColor: "#db9a4a",
+    borderRadius: 100,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 25,
+  },
+
+  loginText: {
+    color: "#fff",
+    ...Fonts.primaryHelvetica,
+    fontWeight: "600",
+    fontSize: 16,
+  },
+
+  loginSignupText: {
+    color: "#000",
+    textAlign: "center",
+    marginTop: 20,
+  },
+
+  linkText: {
+    textDecorationLine: "underline",
+  },
+
   statNumber: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#db9a4a',
-    ...Fonts.primaryHelvetica,
+    fontWeight: "700",
+    color: "#db9a4a",
   },
+
   statLabel: {
     fontSize: 12,
-    color: '#444',
-    marginTop: 4,
-    textAlign: 'center',
-    ...Fonts.primaryHelvetica,
+    color: "#444",
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 30
+  },
+
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 5,
+  },
+
+  separator: {
+    width: 1,
+    height: "60%", // adjust height if needed
+    backgroundColor: "#e5caa0",
   },
 
 });

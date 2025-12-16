@@ -46,13 +46,17 @@ const PoojaList = () => {
         getPoojaData();
     }, []);
 
-    const BASE_URL = 'https://api.acharyalavbhushan.com';
-    const getImageUrl = (path) => (path?.startsWith('http') ? path : `${BASE_URL}${path}`);
-
+    const BASE_URL = 'https://alb-web-assets.s3.ap-south-1.amazonaws.com/acharyalavbhushan';
+    const getImageUrl = (path) => {
+        if (!path) return null;
+        if (path.startsWith('http')) {
+            return `${path}?format=jpg`;
+        }
+        return `${BASE_URL}${path}?format=jpg`;
+    };
     const filteredPooja = pooja.filter((item) =>
         item.pujaName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
@@ -64,7 +68,7 @@ const PoojaList = () => {
                     <Icon name="magnify" size={20} color="#999" style={{ marginRight: 8 }} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search Pooja's..."
+                        placeholder="Search Pooja"
                         placeholderTextColor="#999"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -110,47 +114,47 @@ const PoojaList = () => {
 
 const styles = StyleSheet.create({
     container: {
-    flex: 1,
-    backgroundColor: '#F8F4EF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF5E6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F4EF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#E8DCC8',
-  },
-  searchInput: {
-    flex: 1,
-    color: '#333',
-    fontSize: 15,
-    paddingVertical: 0,
-  },
+        flex: 1,
+        backgroundColor: '#F8F4EF',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#FFF5E6',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    searchBar: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8F4EF',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 42,
+        borderWidth: 1,
+        borderColor: '#E8DCC8',
+    },
+    searchInput: {
+        flex: 1,
+        color: '#333',
+        fontSize: 15,
+        paddingVertical: 0,
+    },
 
     headerTitle: {
         flex: 1,
@@ -160,7 +164,7 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     scrollContent: {
-        marginTop:10,
+        marginTop: 10,
         paddingHorizontal: 12,
         paddingBottom: 30,
     },

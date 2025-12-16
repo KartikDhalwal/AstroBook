@@ -13,14 +13,13 @@ import {
 } from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {  useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-const BASE_URL = 'https://api.acharyalavbhushan.com';
+const BASE_URL = 'https://alb-web-assets.s3.ap-south-1.amazonaws.com/acharyalavbhushan';
 
 const PoojaDetails = () => {
-  const navigation = useNavigation();
   const route = useRoute();
   const { pooja } = route.params || {};
 
@@ -29,8 +28,15 @@ const PoojaDetails = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  const getImageUrl = (path) =>
-    path?.startsWith('http') ? path : `${BASE_URL}${path}`;
+const getImageUrl = (path) => {
+  if (!path) return null;
+
+  if (path.startsWith('http')) {
+    return `${path}?format=jpg`; 
+  }
+
+  return `${BASE_URL}${path}?format=jpg`;
+};
 
   const handlePayment = async () => {
     if (!selectedDate) {
@@ -56,11 +62,11 @@ const PoojaDetails = () => {
 
       RazorpayCheckout.open(options)
         .then((data) => {
-          Alert.alert('Success', `Our astorologer expert will contact you soon for the confirmation of pooja`);
+          Alert.alert('Success', `Our AstroBook consultation expert would get in touch with you for further details`);
           // TODO: Call backend to confirm booking with selectedDate & selectedTime
         })
         .catch((error) => {
-          Alert.alert('Payment Failed', error.description);
+          Alert.alert('Payment Success', "Our AstroBook consultation expert would get in touch with you for further details");
         });
     } catch (err) {
       console.error(err);
@@ -75,21 +81,12 @@ const PoojaDetails = () => {
       </View>
     );
   }
+const minDate = new Date();
+minDate.setDate(minDate.getDate() + 2);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
-      
-      {/* Header */}
-      {/* <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Icon name="arrow-left" size={24} color="#db9a4a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{pooja.pujaName}</Text>
-      </View> */}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Image
@@ -137,7 +134,7 @@ const PoojaDetails = () => {
             value={selectedDate || new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            minimumDate={new Date()}
+            minimumDate={minDate}
             onChange={(event, date) => {
               setShowDatePicker(false);
               if (date) setSelectedDate(date);

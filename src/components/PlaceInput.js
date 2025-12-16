@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TextInput,
@@ -11,10 +11,13 @@ import axios from "axios";
 import REACT_APP_GOOGLE_MAPS_API_KEY from "../apiConfig";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
-const PlaceInput = ({ label, onSelect }) => {
-  const [query, setQuery] = useState("");
+const PlaceInput = ({ label, onSelect,value }) => {
+  const [query, setQuery] = useState(value ?? '');
   const [results, setResults] = useState([]);
-
+  console.log({query})
+    useEffect(() => {
+    setQuery(value ?? '');
+  }, [value]);
   const searchPlaces = async (text) => {
     setQuery(text);
 
@@ -24,7 +27,7 @@ const PlaceInput = ({ label, onSelect }) => {
     }
 
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${text}&key=AIzaSyCOEMK2VFwaDMZIIiiYW6_PP1_ey9GkR9M`;
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${text}&key=AIzaSyBmEP5a5at63KESOSjFAO_R8vTW6VzuuqA`;
       const response = await axios.get(url);
 
       setResults(response.data.predictions);
@@ -38,7 +41,7 @@ const PlaceInput = ({ label, onSelect }) => {
     setResults([]);
 
     try {
-      const detailURL = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&key=${REACT_APP_GOOGLE_MAPS_API_KEY}`;
+      const detailURL = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&key=AIzaSyBmEP5a5at63KESOSjFAO_R8vTW6VzuuqA`;
       const response = await axios.get(detailURL);
 
       const loc = response.data.result.geometry.location;

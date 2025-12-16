@@ -1,747 +1,852 @@
-import React, { Component } from 'react';
+import axios from "axios";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    FlatList,
-    StyleSheet,
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    Image,
-    ActivityIndicator,
-    Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-// import io from 'socket.io-client';
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  StatusBar,
+  Image,
+  Animated,
+  Keyboard,
+  SafeAreaView,
+  ImageBackground,
+} from "react-native";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import io from "socket.io-client";
 
-const { width } = Dimensions.get('window');
-const SOCKET_URL = 'https://your-socket-server.com'; // Replace with your socket server URL
+import api from "../apiConfig";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../config/Screen";
+import IMAGE_BASE_URL from "../imageConfig";
 
-export default class ChatScreen extends Component {
-    constructor(props) {
-        super(props);
+const SOCKET_URL = "https://inventory.sveprajasthan.com";
+const CHAT_HISTORY_PATH = `${api}/mobile/chat`;
 
-        // Get astrologer data from navigation params
-        const { astrologerData } = props.route?.params || {};
-        const userId = ''
-        this.state = {
-            messages: [],
-            inputText: '',
-            isTyping: false,
-            astrologerTyping: false,
-            isConnected: false,
-            astrologerData: astrologerData || {
-                id: 'astrologer_123',
-                name: 'Pt. Rajesh Sharma',
-                image: null,
-                status: 'online',
-            },
-            userId: userId || 'user_456',
-        };
+// Get dynamic dimensions
+const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get("window");
 
-        this.socket = null;
-        this.flatListRef = null;
-        this.typingTimeout = null;
+// Responsive sizing helpers
+const scale = (size) => (WINDOW_WIDTH / 375) * size; // Base width 375 (iPhone X)
+const verticalScale = (size) => (WINDOW_HEIGHT / 812) * size; // Base height 812 (iPhone X)
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
+
+export default function ChatScreen({ route }) {
+  const { astrologer: routeAstrologer, userData: routeUser, time: timeString, date: bookingDate } = route?.params || {};
+  const [isWithinTime, setIsWithinTime] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const userData = routeUser || {
+    _id: "user_123",
+    customerName: "User",
+    image: null,
+    status: "online",
+  };
+
+  const parseBookingDate = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.replace(/\s+/g, " ").trim().split(" ");
+    if (parts.length !== 3) return null;
+    const [day, monthStr, year] = parts;
+    const months = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3,
+      May: 4, Jun: 5, Jul: 6, Aug: 7,
+      Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+    };
+    const month = months[monthStr];
+    if (month === undefined) return null;
+    return new Date(Number(year), month, Number(day), 0, 0, 0, 0);
+  };
+
+  const BASE_URL = "https://api.acharyalavbhushan.com/uploads/";
+  const getImageUrl = (path) => {
+    if (!path) return null;
+
+    // If already a full URL
+    if (path.startsWith('http')) {
+      return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
     }
 
-    componentDidMount() {
-        this.initializeSocket();
-        this.loadChatHistory();
+    // Relative path from backend
+    return `${IMAGE_BASE_URL}${path}?format=jpg`;
+  };
+  const astrologer = routeAstrologer || { _id: "", astrologerName: "Astrologer", image: null, status: "online" };
+  const astrologerImg = getImageUrl(astrologer.profileImage);
+
+  const checkTimeValidity = (slot, dateStr) => {
+    if (!slot || !dateStr) return false;
+    const bookingDay = parseBookingDate(dateStr);
+    if (!bookingDay || isNaN(bookingDay.getTime())) return false;
+    const now = new Date();
+    if (
+      now.getFullYear() !== bookingDay.getFullYear() ||
+      now.getMonth() !== bookingDay.getMonth() ||
+      now.getDate() !== bookingDay.getDate()
+    ) {
+      return false;
     }
+    const [start, end] = slot.split(" - ");
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const startTime = new Date(bookingDay);
+    startTime.setHours(sh, sm, 0, 0);
+    const endTime = new Date(bookingDay);
+    endTime.setHours(eh, em, 0, 0);
+    return now >= startTime && now <= endTime;
+  };
 
-    componentWillUnmount() {
-        if (this.socket) {
-            this.socket.disconnect();
-        }
-        if (this.typingTimeout) {
-            clearTimeout(this.typingTimeout);
-        }
+  useEffect(() => {
+    const validate = () => {
+      const result = checkTimeValidity(timeString, bookingDate);
+      setIsWithinTime(result);
+    };
+    validate();
+    const interval = setInterval(validate, 60000);
+    return () => clearInterval(interval);
+  }, [timeString, bookingDate]);
+
+  const userId = userData._id;
+  const astrologerId = astrologer._id;
+
+  const socketRef = useRef(null);
+  const flatListRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const typingDotAnim = useRef(new Animated.Value(0)).current;
+
+  // Enhanced keyboard handling
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (Platform.OS === "android") {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+      setTimeout(scrollToBottom, 150);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (otherTyping) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(typingDotAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(typingDotAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      typingDotAnim.setValue(0);
     }
+  }, [otherTyping, typingDotAnim]);
 
-    initializeSocket = () => {
-        try {
-            // Initialize socket connection
-            //   this.socket = io(SOCKET_URL, {
-            //     transports: ['websocket'],
-            //     reconnection: true,
-            //     reconnectionAttempts: 5,
-            //     reconnectionDelay: 1000,
-            //   });
+  useEffect(() => {
+    loadChatHistory();
+    initializeSocket();
 
-            // Connection events
-            this.socket.on('connect', () => {
-                console.log('Socket connected');
-                this.setState({ isConnected: true });
-
-                // Join chat room
-                this.socket.emit('join_room', {
-                    userId: this.state.userId,
-                    astrologerId: this.state.astrologerData.id,
-                });
-            });
-
-            this.socket.on('disconnect', () => {
-                console.log('Socket disconnected');
-                this.setState({ isConnected: false });
-            });
-
-            // Message events
-            this.socket.on('receive_message', (message) => {
-                this.handleReceiveMessage(message);
-            });
-
-            this.socket.on('user_typing', (data) => {
-                if (data.userId === this.state.astrologerData.id) {
-                    this.setState({ astrologerTyping: true });
-                }
-            });
-
-            this.socket.on('user_stopped_typing', (data) => {
-                if (data.userId === this.state.astrologerData.id) {
-                    this.setState({ astrologerTyping: false });
-                }
-            });
-
-            this.socket.on('message_delivered', (data) => {
-                this.updateMessageStatus(data.messageId, 'delivered');
-            });
-
-            this.socket.on('message_read', (data) => {
-                this.updateMessageStatus(data.messageId, 'read');
-            });
-
-            this.socket.on('error', (error) => {
-                console.error('Socket error:', error);
-                Alert.alert('Connection Error', 'Unable to connect to chat server');
-            });
-
-        } catch (error) {
-            console.error('Socket initialization error:', error);
-        }
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
+  }, []);
 
-    loadChatHistory = () => {
-        // Mock chat history - Replace with actual API call
-        const mockMessages = [
-            {
-                id: '1',
-                text: 'Namaste! Welcome to our consultation. How may I guide you today?',
-                senderId: this.state.astrologerData.id,
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                status: 'read',
-                type: 'text',
-            },
-            {
-                id: '2',
-                text: 'Hello! I wanted to ask about my career prospects.',
-                senderId: this.state.userId,
-                timestamp: new Date(Date.now() - 3000000).toISOString(),
-                status: 'read',
-                type: 'text',
-            },
-        ];
-
-        this.setState({ messages: mockMessages });
-    };
-
-    handleReceiveMessage = (message) => {
-        this.setState((prevState) => ({
-            messages: [...prevState.messages, message],
-            astrologerTyping: false,
-        }), () => {
-            this.scrollToBottom();
-
-            // Send read receipt
-            if (this.socket && message.senderId !== this.state.userId) {
-                this.socket.emit('message_read', {
-                    messageId: message.id,
-                    userId: this.state.userId,
-                });
-            }
-        });
-    };
-
-    updateMessageStatus = (messageId, status) => {
-        this.setState((prevState) => ({
-            messages: prevState.messages.map((msg) =>
-                msg.id === messageId ? { ...msg, status } : msg
-            ),
+  const loadChatHistory = async () => {
+    try {
+      if (!astrologerId || !userId) {
+        setLoadingHistory(false);
+        return;
+      }
+      const url = `${CHAT_HISTORY_PATH}/${userId}/${astrologerId}`;
+      const res = await axios.get(url, { headers: { "Content-Type": "application/json" } });
+      const data = res.data;
+      if (data && data.success) {
+        const formatted = (data.messages || []).map((m) => ({
+          id: m.messageId || m._id || `${Date.now()}_${Math.random()}`,
+          text: m.text || m.message || "",
+          senderId: m.senderId,
+          receiverId: m.receiverId,
+          timestamp: m.timestamp || m.createdAt,
+          status: m.status || "delivered",
         }));
-    };
-
-    handleSendMessage = () => {
-        const { inputText, userId, astrologerData } = this.state;
-
-        if (inputText.trim() === '') return;
-
-        const newMessage = {
-            id: `msg_${Date.now()}`,
-            text: inputText.trim(),
-            senderId: userId,
-            receiverId: astrologerData.id,
-            timestamp: new Date().toISOString(),
-            status: 'sent',
-            type: 'text',
-        };
-
-        // Add message to state
-        this.setState((prevState) => ({
-            messages: [...prevState.messages, newMessage],
-            inputText: '',
-            isTyping: false,
-        }), () => {
-            this.scrollToBottom();
-        });
-
-        // Send via socket
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('send_message', newMessage);
-
-            // Stop typing indicator
-            this.socket.emit('stopped_typing', {
-                userId: userId,
-                receiverId: astrologerData.id,
-            });
-        }
-    };
-
-    handleTyping = (text) => {
-        this.setState({ inputText: text });
-
-        // Emit typing event
-        if (this.socket && this.socket.connected && !this.state.isTyping) {
-            this.setState({ isTyping: true });
-            this.socket.emit('typing', {
-                userId: this.state.userId,
-                receiverId: this.state.astrologerData.id,
-            });
-        }
-
-        // Clear previous timeout
-        if (this.typingTimeout) {
-            clearTimeout(this.typingTimeout);
-        }
-
-        // Set timeout to stop typing
-        this.typingTimeout = setTimeout(() => {
-            if (this.socket && this.socket.connected) {
-                this.socket.emit('stopped_typing', {
-                    userId: this.state.userId,
-                    receiverId: this.state.astrologerData.id,
-                });
-                this.setState({ isTyping: false });
-            }
-        }, 2000);
-    };
-
-    scrollToBottom = () => {
-        if (this.flatListRef) {
-            setTimeout(() => {
-                this.flatListRef.scrollToEnd({ animated: true });
-            }, 100);
-        }
-    };
-
-    formatTime = (timestamp) => {
-        const date = new Date(timestamp);
-        const hours = date.getHours();
-        const minutes = date.getMinutes();
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const formattedHours = hours % 12 || 12;
-        const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
-        return `${formattedHours}:${formattedMinutes} ${ampm}`;
-    };
-
-    renderMessageStatus = (status) => {
-        switch (status) {
-            case 'sent':
-                return <Icon name="check" size={14} color="#8B7355" />;
-            case 'delivered':
-                return <Icon name="check-all" size={14} color="#8B7355" />;
-            case 'read':
-                return <Icon name="check-all" size={14} color="#db9a4a" />;
-            default:
-                return <Icon name="clock-outline" size={14} color="#8B7355" />;
-        }
-    };
-
-    renderMessage = ({ item, index }) => {
-        const isMyMessage = item.senderId === this.state.userId;
-        const prevMessage = index > 0 ? this.state.messages[index - 1] : null;
-        const showAvatar = !prevMessage || prevMessage.senderId !== item.senderId;
-
-        return (
-            <View
-                style={[
-                    styles.messageContainer,
-                    isMyMessage ? styles.myMessageContainer : styles.theirMessageContainer,
-                ]}
-            >
-                {!isMyMessage && showAvatar && (
-                    <View style={styles.avatarContainer}>
-                        {this.state.astrologerData.image ? (
-                            <Image
-                                source={{ uri: this.state.astrologerData.image }}
-                                style={styles.avatar}
-                            />
-                        ) : (
-                            <View style={styles.avatarPlaceholder}>
-                                <Text style={styles.avatarText}>
-                                    AL
-                                    {/* {this.state.astrologerData.name.charAt(0)} */}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {!isMyMessage && !showAvatar && <View style={styles.avatarSpacer} />}
-
-                <View style={[
-                    styles.messageBubble,
-                    isMyMessage ? styles.myMessageBubble : styles.theirMessageBubble,
-                ]}>
-                    <Text style={[
-                        styles.messageText,
-                        isMyMessage ? styles.myMessageText : styles.theirMessageText,
-                    ]}>
-                        {item.text}
-                    </Text>
-                    <View style={styles.messageFooter}>
-                        <Text style={[
-                            styles.messageTime,
-                            isMyMessage ? styles.myMessageTime : styles.theirMessageTime,
-                        ]}>
-                            {this.formatTime(item.timestamp)}
-                        </Text>
-                        {isMyMessage && (
-                            <View style={styles.messageStatus}>
-                                {this.renderMessageStatus(item.status)}
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </View>
-        );
-    };
-
-    renderTypingIndicator = () => {
-        if (!this.state.astrologerTyping) return null;
-
-        return (
-            <View style={styles.typingContainer}>
-                <View style={styles.avatarContainer}>
-                    {this.state.astrologerData.image ? (
-                        <Image
-                            source={{ uri: this.state.astrologerData.image }}
-                            style={styles.avatar}
-                        />
-                    ) : (
-                        <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarText}>
-                                {/* {this.state.astrologerData.name.charAt(0)} */}
-                            </Text>
-                        </View>
-                    )}
-                </View>
-                <View style={styles.typingBubble}>
-                    <View style={styles.typingDots}>
-                        <View style={styles.typingDot} />
-                        <View style={styles.typingDot} />
-                        <View style={styles.typingDot} />
-                    </View>
-                </View>
-            </View>
-        );
-    };
-
-    render() {
-        const { astrologerData, isConnected } = this.state;
-
-        return (
-            <SafeAreaView style={styles.container}>
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => this.props.navigation.goBack()}
-                        >
-                            <Icon name="arrow-left" size={24} color="#2C1810" />
-                        </TouchableOpacity>
-
-                        <View style={styles.headerInfo}>
-                            <View style={styles.headerAvatarContainer}>
-                                {this.state.astrologerData.image ? (
-                                    <Image
-                                        source={{ uri: this.state.astrologerData.image }}
-                                        style={styles.headerAvatar}
-                                    />
-                                ) : (
-                                    <View style={styles.headerAvatarPlaceholder}>
-                                        <Text style={styles.headerAvatarText}>AL</Text>
-                                    </View>
-                                )}
-                                {this.state.astrologerData.status === 'online' && (
-                                    <View style={styles.onlineIndicator} />
-                                )}
-                            </View>
-                            <View style={styles.headerTextContainer}>
-                                <Text style={styles.headerName}>Acharya LavBhushan</Text>
-                                <Text style={styles.headerStatus}>
-                                    {this.state.isConnected
-                                        ? this.state.astrologerData.status === 'online'
-                                            ? 'Online'
-                                            : 'Offline'
-                                        : 'Connecting...'}
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.headerActions}>
-                            {/* <TouchableOpacity style={styles.headerActionButton}>
-                                <Icon name="phone" size={22} color="#db9a4a" />
-                            </TouchableOpacity> */}
-                            <TouchableOpacity style={styles.headerActionButton}>
-                                <Icon name="dots-vertical" size={22} color="#db9a4a" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Connection Banner */}
-                    {!this.state.isConnected && (
-                        <View style={styles.connectionBanner}>
-                            <ActivityIndicator size="small" color="#db9a4a" />
-                            <Text style={styles.connectionText}>Connecting to server...</Text>
-                        </View>
-                    )}
-
-                    {/* Messages */}
-                    <FlatList
-                        ref={(ref) => (this.flatListRef = ref)}
-                        data={this.state.messages}
-                        renderItem={this.renderMessage}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.messagesList}
-                        showsVerticalScrollIndicator={false}
-                        onContentSizeChange={this.scrollToBottom}
-                        ListFooterComponent={this.renderTypingIndicator}
-                    />
-
-                    {/* Input Section */}
-                    <View style={styles.inputContainer}>
-                        {/* <TouchableOpacity style={styles.attachButton}>
-                            <Icon name="plus-circle" size={28} color="#db9a4a" />
-                        </TouchableOpacity> */}
-
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                style={styles.textInput}
-                                placeholder="Type your message..."
-                                placeholderTextColor="#8B7355"
-                                value={this.state.inputText}
-                                onChangeText={this.handleTyping}
-                                multiline
-                                maxLength={1000}
-                            />
-                            {/* <TouchableOpacity style={styles.emojiButton}>
-                                <Icon name="emoticon-happy-outline" size={24} color="#8B7355" />
-                            </TouchableOpacity> */}
-                        </View>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.sendButton,
-                                this.state.inputText.trim() === '' && styles.sendButtonDisabled,
-                            ]}
-                            onPress={this.handleSendMessage}
-                            disabled={this.state.inputText.trim() === ''}
-                        >
-                            <Icon
-                                name="send"
-                                size={22}
-                                color={this.state.inputText.trim() === '' ? '#8B7355' : '#FFFFFF'}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </KeyboardAvoidingView>
-            </SafeAreaView>
-
-        );
+        setMessages(formatted);
+        setTimeout(scrollToBottom, 120);
+      }
+    } catch (err) {
+      console.error("Chat history error:", err?.response?.data ?? err?.message ?? err);
+    } finally {
+      setLoadingHistory(false);
     }
+  };
+
+  const initializeSocket = () => {
+    if (!userId) return;
+
+    socketRef.current = io(SOCKET_URL, {
+      transports: ["websocket"],
+      reconnection: true,
+      query: { userId, user_type: "customer" },
+    });
+
+    socketRef.current.on("connect", () => {
+      setIsConnected(true);
+      socketRef.current.emit("join_normal_chat", { userId, astrologerId });
+    });
+
+    socketRef.current.on("disconnect", () => {
+      setIsConnected(false);
+    });
+
+    socketRef.current.on("receive_message_normal", (message) => {
+      onReceiveMessage(message);
+    });
+
+    socketRef.current.on("typing", (data) => {
+      if (data.userId === astrologerId) setOtherTyping(true);
+    });
+    socketRef.current.on("stopped_typing", (data) => {
+      if (data.userId === astrologerId) setOtherTyping(false);
+    });
+
+    socketRef.current.on("message_delivered_normal", ({ tempId, messageId }) => {
+      if (!tempId || !messageId) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, id: messageId, status: "delivered" } : m))
+      );
+    });
+
+    socketRef.current.on("message_read_normal", ({ messageId }) => {
+      updateMessageStatus(messageId, "read");
+    });
+
+    socketRef.current.on("connect_error", (err) => {
+      console.warn("Socket connect_error:", err?.message || err);
+    });
+  };
+
+  const onReceiveMessage = (message) => {
+    const formatted = {
+      id: message.messageId || message.id || `${Date.now()}_${Math.random()}`,
+      text: message.text || message.message || "",
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      timestamp: message.timestamp || message.createdAt || new Date().toISOString(),
+      status: message.status || "delivered",
+      tempId: message.tempId,
+    };
+
+    setMessages((prev) => {
+      if (formatted.tempId) {
+        const exists = prev.some((m) => m.id === formatted.tempId);
+        if (exists) {
+          return prev.map((m) =>
+            m.id === formatted.tempId ? { ...m, id: formatted.id, status: formatted.status, timestamp: formatted.timestamp } : m
+          );
+        }
+      }
+
+      if (prev.some((m) => m.id === formatted.id)) return prev;
+
+      const fuzzy = prev.some(
+        (m) =>
+          m.text === formatted.text &&
+          m.senderId === formatted.senderId &&
+          Math.abs(new Date(m.timestamp) - new Date(formatted.timestamp)) < 1500
+      );
+      if (fuzzy) return prev;
+
+      return [...prev, formatted];
+    });
+
+    setOtherTyping(false);
+    setTimeout(scrollToBottom, 80);
+
+    if (formatted.senderId === astrologerId && socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit("read_message_normal", { messageId: formatted.id, userId });
+    }
+  };
+
+  const updateMessageStatus = (messageId, status) => {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, status } : m)));
+  };
+
+  const handleSendMessage = () => {
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
+
+    const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const payload = {
+      tempId,
+      text: trimmed,
+      senderId: userId,
+      receiverId: astrologerId,
+      timestamp: new Date().toISOString(),
+    };
+
+    const local = { ...payload, id: tempId, status: "sent" };
+    setMessages((prev) => [...prev, local]);
+    setInputText("");
+    setIsTyping(false);
+    setTimeout(scrollToBottom, 80);
+
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit("send_message_normal", payload);
+      socketRef.current.emit("stopped_typing", { userId, astrologerId });
+    }
+  };
+
+  const handleTyping = (text) => {
+    setInputText(text);
+
+    if (!isTyping && socketRef.current && socketRef.current.connected) {
+      setIsTyping(true);
+      socketRef.current.emit("typing", { userId, astrologerId });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit("stopped_typing", { userId, astrologerId });
+      }
+      setIsTyping(false);
+    }, 1500);
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (flatListRef.current?.scrollToEnd) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      } else if (flatListRef.current?.scrollToOffset) {
+        flatListRef.current.scrollToOffset({ offset: 99999, animated: true });
+      }
+    }, 100);
+  };
+
+  const formatTime = (ts) => {
+    const d = new Date(ts);
+    let h = d.getHours();
+    let m = d.getMinutes();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    m = m < 10 ? `0${m}` : m;
+    return `${h}:${m} ${ampm}`;
+  };
+
+  const renderMessageStatus = (status) => {
+    switch (status) {
+      case "sent":
+        return <Icon name="check" size={moderateScale(14)} color="rgba(255,255,255,0.8)" />;
+      case "delivered":
+        return <Icon name="check-all" size={moderateScale(14)} color="rgba(255,255,255,0.8)" />;
+      case "read":
+        return <Icon name="check-all" size={moderateScale(14)} color="#FCD34D" />;
+      default:
+        return <Icon name="clock-outline" size={moderateScale(14)} color="rgba(255,255,255,0.6)" />;
+    }
+  };
+
+  const renderMessage = ({ item, index }) => {
+    const isMine = item.senderId === userId;
+    const prevMessage = index > 0 ? messages[index - 1] : null;
+    const showAvatar = !prevMessage || prevMessage.senderId !== item.senderId;
+
+    return (
+      <View style={[styles.messageContainer, isMine ? styles.myMessageContainer : styles.theirMessageContainer]}>
+        {!isMine && (
+          <View style={styles.avatarContainer}>
+            {showAvatar ? (
+              astrologerImg ? (
+                <Image source={{ uri: astrologerImg }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarText}>{(astrologer.astrologerName || "A")[0].toUpperCase()}</Text>
+                </View>
+              )
+            ) : (
+              <View style={styles.avatarSpacer} />
+            )}
+          </View>
+        )}
+
+        <View style={[styles.messageBubble, isMine ? styles.myMessageBubble : styles.theirMessageBubble]}>
+          <Text style={[styles.messageText, isMine ? styles.myMessageText : styles.theirMessageText]}>{item.text}</Text>
+          <View style={styles.footerRow}>
+            <Text style={[styles.messageTime, isMine ? styles.myMessageTime : styles.theirMessageTime]}>{formatTime(item.timestamp)}</Text>
+            {isMine && <View style={styles.statusIcon}>{renderMessageStatus(item.status)}</View>}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderTypingIndicator = () => {
+    if (!otherTyping) return null;
+    const dot1 = typingDotAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+    const dot2 = typingDotAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -8, 0] });
+    const dot3 = typingDotAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] });
+
+    return (
+      <View style={styles.typingContainer}>
+        <View style={styles.avatarContainer}>
+          {astrologerImg ? (
+            <Image source={{ uri: astrologerImg }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>{(astrologer.astrologerName || "A")[0].toUpperCase()}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.typingBubble}>
+          <View style={styles.typingDots}>
+            <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
+            <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
+            <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.headerContent}>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerAvatarContainer}>
+            {astrologerImg ? (
+              <Image source={{ uri: astrologerImg }} style={styles.headerAvatar} />
+            ) : (
+              <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
+                <Text style={styles.headerAvatarText}>{(astrologer.astrologerName || "A")[0].toUpperCase()}</Text>
+              </View>
+            )}
+            {astrologer.status === "online" && <View style={styles.onlineIndicator} />}
+          </View>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerName} numberOfLines={1}>{astrologer.astrologerName || "Astrologer"}</Text>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDot, isConnected ? styles.statusConnected : styles.statusDisconnected]} />
+              <Text style={styles.headerStatus}>{otherTyping ? "typing..." : astrologer.status === "online" ? "Active now" : "Offline"}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#db9a4a" />
+        <Image
+          source={require('../assets/images/logoBlack.png')}
+          style={styles.watermarkImage}
+        />
+        {renderHeader()}
+
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        >
+          {/* <View style={styles.messagesContainer}> */}
+            <ImageBackground
+          source={require("../assets/images/logoBlack.png")}
+          style={styles.messagesContainer}
+          imageStyle={styles.watermark}
+        >
+            {loadingHistory ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#db9a4a" />
+                <Text style={styles.loadingText}>Loading conversation...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={messages}
+                ref={flatListRef}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMessage}
+                ListFooterComponent={renderTypingIndicator}
+                onContentSizeChange={scrollToBottom}
+                contentContainerStyle={styles.messagesList}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+          </ImageBackground>
+
+          <View style={[
+            styles.inputContainer,
+            Platform.OS === "android" && keyboardHeight > 0 && {
+              position: 'absolute',
+              bottom: keyboardHeight,
+              left: 0,
+              right: 0,
+            }
+          ]}>
+            <View style={styles.inputShadow}>
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={
+                      isWithinTime
+                        ? "Type your message..."
+                        : "Chat will be enabled in your session"
+                    }
+                    placeholderTextColor="#9CA3AF"
+                    value={inputText}
+                    onChangeText={isWithinTime ? handleTyping : undefined}
+                    editable={isWithinTime}
+                    multiline
+                    maxLength={1000}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    (!inputText.trim() || !isWithinTime) && styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSendMessage}
+                  disabled={!inputText.trim() || !isWithinTime}
+                  activeOpacity={0.85}
+                >
+                  <Icon name="send" size={moderateScale(20)} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#FAF8F5',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E8E4DC',
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerInfo: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    headerAvatarContainer: {
-        position: 'relative',
-    },
-    headerAvatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 2,
-        borderColor: '#db9a4a',
-    },
-    headerAvatarPlaceholder: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#db9a4a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#db9a4a',
-    },
-    headerAvatarText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#FFFFFF',
-    },
-    onlineIndicator: {
-        position: 'absolute',
-        bottom: 2,
-        right: 2,
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#4CAF50',
-        borderWidth: 2,
-        borderColor: '#FFFFFF',
-    },
-    headerTextContainer: {
-        marginLeft: 12,
-        flex: 1,
-    },
-    headerName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#2C1810',
-    },
-    headerStatus: {
-        fontSize: 12,
-        color: '#8B7355',
-        marginTop: 2,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    headerActionButton: {
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    connectionBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFF3E0',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        gap: 8,
-    },
-    connectionText: {
-        fontSize: 12,
-        color: '#8B7355',
-    },
-    messagesList: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    messageContainer: {
-        flexDirection: 'row',
-        marginVertical: 4,
-        maxWidth: width * 0.75,
-    },
-    myMessageContainer: {
-        alignSelf: 'flex-end',
-        flexDirection: 'row-reverse',
-    },
-    theirMessageContainer: {
-        alignSelf: 'flex-start',
-    },
-    avatarContainer: {
-        marginRight: 8,
-    },
-    avatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E8E4DC',
-    },
-    avatarPlaceholder: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#db9a4a',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#FFFFFF',
-    },
-    avatarSpacer: {
-        width: 40,
-    },
-    messageBubble: {
-        borderRadius: 16,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        maxWidth: '100%',
-    },
-    myMessageBubble: {
-        backgroundColor: '#db9a4a',
-        borderBottomRightRadius: 4,
-    },
-    theirMessageBubble: {
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E8E4DC',
-        borderBottomLeftRadius: 4,
-    },
-    messageText: {
-        fontSize: 15,
-        lineHeight: 20,
-    },
-    myMessageText: {
-        color: '#FFFFFF',
-    },
-    theirMessageText: {
-        color: '#2C1810',
-    },
-    messageFooter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 4,
-        gap: 4,
-    },
-    messageTime: {
-        fontSize: 10,
-        letterSpacing: 0.3,
-    },
-    myMessageTime: {
-        color: 'rgba(255, 255, 255, 0.8)',
-    },
-    theirMessageTime: {
-        color: '#8B7355',
-    },
-    messageStatus: {
-        marginLeft: 2,
-    },
-    typingContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 8,
-    },
-    typingBubble: {
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E8E4DC',
-        borderRadius: 16,
-        borderBottomLeftRadius: 4,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        marginLeft: 8,
-    },
-    typingDots: {
-        flexDirection: 'row',
-        gap: 4,
-    },
-    typingDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#db9a4a',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderTopWidth: 1,
-        borderTopColor: '#E8E4DC',
-        gap: 8,
-    },
-    attachButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 2,
-    },
-    inputWrapper: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        backgroundColor: '#FAF8F5',
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E8E4DC',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        maxHeight: 100,
-    },
-    textInput: {
-        flex: 1,
-        fontSize: 15,
-        color: '#2C1810',
-        maxHeight: 80,
-        paddingTop: 8,
-        paddingBottom: 8,
-    },
-    emojiButton: {
-        width: 32,
-        height: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 4,
-    },
-    sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#db9a4a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 2,
-    },
-    sendButtonDisabled: {
-        backgroundColor: '#F0EDE8',
-    },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#db9a4a",
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#F9FAFB"
+  },
+  watermarkImage: {
+    position: 'absolute',
+    opacity: 0.05,
+    width: WINDOW_WIDTH * 1.5,
+    height: WINDOW_HEIGHT * 0.7,
+    resizeMode: 'contain',
+    top: WINDOW_HEIGHT * 0.1,
+    left: -WINDOW_WIDTH * 0.25,
+    zIndex: -1,
+  },
+  header: {
+    backgroundColor: "#db9a4a",
+    paddingTop: Platform.OS === "ios" ? 0 : verticalScale(15),
+    paddingBottom: verticalScale(16),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerContent: {
+    paddingHorizontal: scale(16)
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  headerAvatarContainer: {
+    position: "relative"
+  },
+  headerAvatar: {
+    width: moderateScale(52),
+    height: moderateScale(52),
+    borderRadius: moderateScale(26),
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.3)"
+  },
+  onlineIndicator: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: moderateScale(16),
+    height: moderateScale(16),
+    borderRadius: moderateScale(8),
+    backgroundColor: "#4ADE80",
+    borderWidth: 3,
+    borderColor: "#db9a4a"
+  },
+  headerInfo: {
+    marginLeft: scale(14),
+    flex: 1
+  },
+  headerName: {
+    fontSize: moderateScale(19),
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: verticalScale(3),
+    letterSpacing: 0.3
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  statusDot: {
+    width: moderateScale(7),
+    height: moderateScale(7),
+    borderRadius: moderateScale(3.5),
+    marginRight: scale(6)
+  },
+  statusConnected: {
+    backgroundColor: "#4ADE80"
+  },
+  statusDisconnected: {
+    backgroundColor: "#9CA3AF"
+  },
+  headerStatus: {
+    fontSize: moderateScale(13),
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "500"
+  },
+  headerAvatarText: {
+    fontSize: moderateScale(22),
+    fontWeight: "700",
+    color: "#fff"
+  },
+
+  keyboardView: {
+    flex: 1,
+  },
+  messagesContainer: {
+    flex: 1
+  },
+    watermark: { opacity: 0.06, resizeMode: "fill" },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: verticalScale(60)
+  },
+  loadingText: {
+    marginTop: verticalScale(16),
+    fontSize: moderateScale(15),
+    color: "#6B7280",
+    fontWeight: "500"
+  },
+  messagesList: {
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(16),
+    paddingBottom: Platform.OS === "android" ? verticalScale(100) : verticalScale(20)
+  },
+
+  messageContainer: {
+    marginBottom: verticalScale(10),
+    flexDirection: "row",
+    alignItems: "flex-end"
+  },
+  myMessageContainer: {
+    justifyContent: "flex-end",
+    alignSelf: "flex-end"
+  },
+  theirMessageContainer: {
+    justifyContent: "flex-start",
+    alignSelf: "flex-start"
+  },
+
+  avatarContainer: {
+    width: moderateScale(36),
+    marginRight: scale(8),
+    marginBottom: verticalScale(2)
+  },
+  avatar: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    borderWidth: 2,
+    borderColor: "#E5E7EB"
+  },
+  avatarPlaceholder: {
+    backgroundColor: "#db9a4a",
+    justifyContent: "center",
+    alignItems: "center",
+    borderColor: "#c28940"
+  },
+  avatarText: {
+    fontSize: moderateScale(15),
+    fontWeight: "700",
+    color: "#fff"
+  },
+  avatarSpacer: {
+    width: moderateScale(36),
+    height: moderateScale(36)
+  },
+
+  messageBubble: {
+    maxWidth: WINDOW_WIDTH * 0.72,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(18),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  myMessageBubble: {
+    backgroundColor: "#db9a4a",
+    borderBottomRightRadius: moderateScale(4)
+  },
+  theirMessageBubble: {
+    backgroundColor: "#fff",
+    borderBottomLeftRadius: moderateScale(4),
+    borderWidth: 1,
+    borderColor: "#E5E7EB"
+  },
+
+  messageText: {
+    fontSize: moderateScale(15),
+    lineHeight: moderateScale(21),
+    letterSpacing: 0.2
+  },
+  myMessageText: {
+    color: "#fff"
+  },
+  theirMessageText: {
+    color: "#1F2937"
+  },
+
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: verticalScale(5)
+  },
+  messageTime: {
+    fontSize: moderateScale(11),
+    fontWeight: "500"
+  },
+  myMessageTime: {
+    color: "rgba(255,255,255,0.75)"
+  },
+  theirMessageTime: {
+    color: "#9CA3AF"
+  },
+  statusIcon: {
+    marginLeft: scale(5)
+  },
+
+  typingContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginTop: verticalScale(4),
+    marginBottom: verticalScale(8)
+  },
+  typingBubble: {
+    backgroundColor: "#fff",
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(18),
+    borderBottomLeftRadius: moderateScale(4),
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2
+  },
+  typingDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: scale(6)
+  },
+  dot: {
+    width: moderateScale(8),
+    height: moderateScale(8),
+    backgroundColor: "#db9a4a",
+    borderRadius: moderateScale(4)
+  },
+
+  inputContainer: {
+    backgroundColor: "#fff",
+    paddingHorizontal: scale(12),
+    paddingTop: verticalScale(8),
+    paddingBottom: Platform.OS === "ios" ? verticalScale(8) : verticalScale(10),
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB"
+  },
+  inputShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    backgroundColor: "#F9FAFB",
+    borderRadius: moderateScale(26),
+    paddingLeft: scale(4),
+    paddingRight: scale(4),
+    paddingVertical: verticalScale(4),
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom:24
+  },
+  inputBox: {
+    flex: 1,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(2),
+  },
+  input: {
+    fontSize: moderateScale(15),
+    color: "#1F2937",
+    maxHeight: verticalScale(100),
+    paddingVertical: verticalScale(8),
+    paddingHorizontal: 0,
+    lineHeight: moderateScale(20)
+  },
+  sendButton: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
+    backgroundColor: "#db9a4a",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#db9a4a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4
+  },
+  sendButtonDisabled: {
+    backgroundColor: "#D1D5DB",
+    shadowOpacity: 0.1
+  },
 });

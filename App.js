@@ -1,44 +1,61 @@
 // App.js
-import React, { useEffect } from 'react';
-import AppNavigator from './src/navigation/AppNavigator';
+import React, { useEffect, useRef } from 'react';
 import { LogBox } from 'react-native';
-import { initializeApp } from '@react-native-firebase/app';
-import messaging from "@react-native-firebase/messaging";
-import { navigate } from "./src/navigation/navigationRef";
+import Toast from 'react-native-toast-message';
+
+import messaging from '@react-native-firebase/messaging';
+import notifee, { AndroidImportance } from '@notifee/react-native';
+
+import AppNavigator from './src/navigation/AppNavigator';
+import { navigate, navigationRef } from './src/navigation/navigationRef';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import api from './src/apiConfig';
 
 LogBox.ignoreLogs(['Setting a timer']);
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDpFoGJ0glT_V8Qy2ybG4uhbX6KI0Plv20",
-  authDomain: "astrobook-f654b.firebaseapp.com",
-  databaseURL: "https://astrobook-f654b-default-rtdb.firebaseio.com",
-  projectId: "astrobook-f654b",
-  storageBucket: "astrobook-f654b.appspot.com",
-  messagingSenderId: "87240796994",
-  appId: "1:87240796994:web:f67a36c9d8d5ec142836db",
-  measurementId: "G-V0NYNE59PV",
-};
+async function createCallChannel() {
+  await notifee.createChannel({
+    id: 'incoming_calls',
+    name: 'Incoming Calls',
+    importance: AndroidImportance.HIGH,
+    sound: 'default',
+  });
+}
 
 export default function App() {
-  useEffect(() => {
+  const initialNotificationHandled = useRef(false);
+
+  // 🔹 SAVE NOTIFICATION TO DB
+  const saveNotificationToDB = async (remoteMessage) => {
     try {
-      initializeApp(firebaseConfig);
-      console.log("🔥 Firebase initialized");
+      const userData = JSON.parse(await AsyncStorage.getItem('customerData'));
+      if (!userData?._id) return;
+
+      await axios.post(`${api}/mobile/notifications`, {
+        userId: userData._id,
+        type: remoteMessage?.data?.type,
+        title: remoteMessage?.notification?.title || 'Notification',
+        body: remoteMessage?.notification?.body || '',
+        data: remoteMessage?.data || {},
+      });
     } catch (e) {
-      console.log("⚙️ Firebase already initialized");
+      console.log('Notification save failed:', e?.message);
     }
+  };
 
-    const unsubscribe = messaging().onMessage(async (msg) => {
-      console.log("📩 MESSAGE RECEIVED:", msg.data);
-      // if (msg.data.type === "customer_upcoming_consultation") {
+  useEffect(() => {
+    createCallChannel();
+  }, []);
 
-      //   navigate("UserConsultationList", {
-      //     bookingId: msg.data.bookingId,
-      //     channelName: msg.data.channelName,
-      //   });
-      // }
-      if (msg.data?.type === "incoming_call") {
-        navigate("UserIncomingCallPopup", {
+  useEffect(() => {
+    // 🔹 FOREGROUND
+    const unsubscribe = messaging().onMessage(async msg => {
+      await saveNotificationToDB(msg);
+
+      if (msg.data?.type === 'incoming_call') {
+        navigate('UserIncomingCallPopup', {
           booking: JSON.parse(msg.data.booking),
           astrologerData: JSON.parse(msg.data.astrologerData),
           channelName: msg.data.channelName,
@@ -46,8 +63,59 @@ export default function App() {
       }
     });
 
-    return unsubscribe;
+    // 🔹 BACKGROUND (app in memory)
+    const unsubscribeOpened = messaging().onNotificationOpenedApp(
+      async remoteMessage => {
+        await saveNotificationToDB(remoteMessage);
+
+        if (remoteMessage?.data?.type === 'incoming_call') {
+          navigate('UserIncomingCallPopup', {
+            booking: JSON.parse(remoteMessage.data.booking),
+            astrologerData: JSON.parse(remoteMessage.data.astrologerData),
+            channelName: remoteMessage.data.channelName,
+          });
+        }
+      }
+    );
+
+    // 🔹 KILLED STATE
+    messaging()
+      .getInitialNotification()
+      .then(async remoteMessage => {
+        if (
+          remoteMessage &&
+          !initialNotificationHandled.current
+        ) {
+          initialNotificationHandled.current = true;
+
+          await saveNotificationToDB(remoteMessage);
+
+          const interval = setInterval(() => {
+            if (navigationRef.isReady()) {
+              clearInterval(interval);
+
+              if (remoteMessage.data?.type === 'incoming_call') {
+                navigate('UserIncomingCallPopup', {
+                  booking: JSON.parse(remoteMessage.data.booking),
+                  astrologerData: JSON.parse(remoteMessage.data.astrologerData),
+                  channelName: remoteMessage.data.channelName,
+                });
+              }
+            }
+          }, 100);
+        }
+      });
+
+    return () => {
+      unsubscribe();
+      unsubscribeOpened();
+    };
   }, []);
 
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator />
+      <Toast />
+    </>
+  );
 }

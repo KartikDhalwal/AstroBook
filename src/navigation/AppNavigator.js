@@ -15,8 +15,13 @@ import UserIncomingCallPopup from "../screens/UserIncomingCallPopup";
 import KundliMatchingReportScreen from "../screens/KundliMatchingReportScreen";
 import KundliScreen from "../screens/KundliScreen";
 import ConsultationDetailsScreen from "../screens/ConsultationDetailsScreen";
+import ChatScreen from "../screens/ChatScreen";
+import TermsConditionsScreen from "../screens/TermsConditionsScreen";
+import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen";
 import BottomTabs from "./BottomTabs";
 import { navigationRef } from "../navigation/navigationRef";
+import AstrolgersList from "../screens/AstrolgersList";
+import SelectSlotScreenReschedule from "../screens/SlotDetailsReschedule";
 
 const Stack = createNativeStackNavigator();
 
@@ -26,7 +31,7 @@ export default function AppNavigator() {
 
       <Stack.Navigator
         screenOptions={{
-          headerShown: false,        // 🔥 enable top header globally
+          headerShown: false,
         }}
       >
         <Stack.Screen
@@ -42,7 +47,7 @@ export default function AppNavigator() {
         <Stack.Screen
           name="SignUp"
           component={SignUp}
-          options={{ headerShown: false }}
+          options={{ headerShown: true, title: 'Profile' }}
         />
         <Stack.Screen
           name="Otp"
@@ -52,37 +57,42 @@ export default function AppNavigator() {
         <Stack.Screen
           name="UserConsultationList"
           component={UserConsultationList}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: 'My Consultations' }}
         />
         <Stack.Screen
           name="PoojaList"
           component={PoojaList}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: 'Pooja' }}
         />
         <Stack.Screen
           name="PoojaDetails"
           component={PoojaDetails}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: 'Pooja Details' }}
         />
         <Stack.Screen
           name="AstrologerDetailsScreen"
           component={AstrologerDetailsScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: "Astrologers Details" }}
         />
         <Stack.Screen
           name="SlotDetails"
           component={SlotDetails}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: "Slot Details" }}
+        />
+        <Stack.Screen
+          name="SelectSlotScreenReschedule"
+          component={SelectSlotScreenReschedule}
+          options={{ headerShown: true, title: "Slot Details" }}
         />
         <Stack.Screen
           name="KundliMatchingReportScreen"
           component={KundliMatchingReportScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: "Kundli Match" }}
         />
         <Stack.Screen
           name="UserIncomingCallScreen"
           component={UserIncomingCallScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: false, title: "Incoming Call" }}
         />
         <Stack.Screen
           name="UserIncomingCallPopup"
@@ -99,11 +109,30 @@ export default function AppNavigator() {
           component={ConsultationDetailsScreen}
           options={{ headerShown: true }}
         />
-        
+        <Stack.Screen
+          name="ChatScreen"
+          component={ChatScreen}
+          options={{ headerShown: true, title: 'AstroBook Chat' }}
+        />
+
         <Stack.Screen
           name="MainTabs"
           component={BottomTabs}
           options={{ headerShown: false }} // Tabs have their own screens
+        />
+        <Stack.Screen
+          name="TermsConditionsScreen"
+          component={TermsConditionsScreen}
+          options={{ headerShown: false, title: 'Terms & Conditions' }} // Tabs have their own screens
+        />
+        <Stack.Screen
+          name="PrivacyPolicyScreen"
+          component={PrivacyPolicyScreen}
+          options={{ headerShown: false, title: 'Terms & Conditions' }} // Tabs have their own screens
+        />
+        <Stack.Screen
+          name="VideoList"
+          component={props => <AstrolgersList {...props} mode="video" />}
         />
       </Stack.Navigator>
     </NavigationContainer>

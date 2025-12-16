@@ -17,7 +17,11 @@ import axios from "axios";
 import api from "../apiConfig";
 import HoroscopeBarChart from "../components/HoroscopeBarChart";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+/* -------------------- RESPONSIVE HELPERS -------------------- */
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Base width = 375 (standard Android phone)
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
 
 const HoroscopeDetailScreen = ({ route, navigation }) => {
     const { zodiacSign, zodiacImage } = route.params;
@@ -28,27 +32,27 @@ const HoroscopeDetailScreen = ({ route, navigation }) => {
 
     const tabs = ["daily", "weekly", "monthly", "yearly"];
 
-    // Convert HTML → clean text
+    /* -------------------- HTML CLEANER -------------------- */
     const stripHTML = (html) => {
         if (!html) return "No data available.";
 
         return html
             .replace(/<\/p>/gi, "\n\n")
             .replace(/<br\s*\/?>/gi, "\n")
-            .replace(/<[^>]+>/g, "") // remove tags
+            .replace(/<[^>]+>/g, "")
             .replace(/&nbsp;/g, " ")
             .trim();
     };
 
-    // Fetch horoscope
+    /* -------------------- API -------------------- */
     const loadHoroscope = async () => {
         try {
             setLoading(true);
-
             const res = await axios.post(
-                `https://kundli2.astrosetalk.com/api/horoscope/get_horoscope`,
+                "https://kundli2.astrosetalk.com/api/horoscope/get_horoscope",
                 { sign: zodiacSign }
             );
+
             const extracted =
                 res?.data?.responseData?.data?.[0]?.horoscope || null;
 
@@ -63,34 +67,22 @@ const HoroscopeDetailScreen = ({ route, navigation }) => {
         loadHoroscope();
     }, [zodiacSign]);
 
-    // Pick correct text content based on tab
     const textContent = stripHTML(horoscope?.[activeTab]);
 
-    // Pick correct tag data
-    const tagField = activeTab + "tag"; // dailytag, weeklytag etc
+    const tagField = activeTab + "tag";
     const chartData = horoscope?.[tagField]
         ? Object.entries(horoscope[tagField]).map(([k, v]) => ({
-            label: k,
-            value: v,
-        }))
+              label: k,
+              value: v,
+          }))
         : [];
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F4EF" }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Header */}
-                {/* <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.backButton}
-                    >
-                        <Icon name="arrow-left" size={26} color="#db9a4a" />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>{zodiacSign.toUpperCase()}</Text>
-                    <View style={{ width: 40 }} />
-                </View> */}
-
+        <SafeAreaView style={styles.safe}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: scale(20) }}
+            >
                 {/* Zodiac Image */}
                 {zodiacImage && (
                     <Image
@@ -109,13 +101,18 @@ const HoroscopeDetailScreen = ({ route, navigation }) => {
                     {tabs.map((tab) => (
                         <TouchableOpacity
                             key={tab}
-                            style={[styles.tab, activeTab === tab && styles.activeTab]}
+                            style={[
+                                styles.tab,
+                                activeTab === tab && styles.activeTab,
+                            ]}
                             onPress={() => setActiveTab(tab)}
+                            activeOpacity={0.7}
                         >
                             <Text
                                 style={[
                                     styles.tabText,
-                                    activeTab === tab && styles.activeTabText,
+                                    activeTab === tab &&
+                                        styles.activeTabText,
                                 ]}
                             >
                                 {tab.toUpperCase()}
@@ -127,13 +124,20 @@ const HoroscopeDetailScreen = ({ route, navigation }) => {
                 {/* Content */}
                 <View style={styles.contentArea}>
                     {loading ? (
-                        <ActivityIndicator size="large" color="#db9a4a" />
+                        <ActivityIndicator
+                            size="large"
+                            color="#db9a4a"
+                        />
                     ) : (
-                        <Animatable.View animation="fadeInUp" duration={400} key={activeTab}>
-                            {/* TEXT */}
-                            <Text style={styles.horoscopeText}>{textContent}</Text>
+                        <Animatable.View
+                            animation="fadeInUp"
+                            duration={400}
+                            key={activeTab}
+                        >
+                            <Text style={styles.horoscopeText}>
+                                {textContent}
+                            </Text>
 
-                            {/* Chart */}
                             <HoroscopeBarChart data={chartData} />
                         </Animatable.View>
                     )}
@@ -145,71 +149,62 @@ const HoroscopeDetailScreen = ({ route, navigation }) => {
 
 export default HoroscopeDetailScreen;
 
-
-
 /* ------------------------- STYLES ------------------------ */
-
 const styles = StyleSheet.create({
-    header: {
-        padding: 16,
-        backgroundColor: "#FFF",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        elevation: 3,
+    safe: {
+        flex: 1,
+        backgroundColor: "#F8F4EF",
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        backgroundColor: "#FFF5E6",
-        borderRadius: 20,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#2C1810",
-    },
+
     zodiacImage: {
-        width: 140,
-        height: 140,
+        width: scale(140),
+        height: scale(140),
         alignSelf: "center",
-        marginTop: 20,
+        marginTop: scale(20),
     },
+
     tabContainer: {
         flexDirection: "row",
-        justifyContent: "space-around",
-        marginTop: 25,
-        paddingHorizontal: 10,
+        flexWrap: "wrap", // ✅ IMPORTANT for small screens
+        justifyContent: "center",
+        gap: scale(8),
+        marginTop: scale(24),
+        paddingHorizontal: scale(12),
     },
+
     tab: {
-        paddingVertical: 8,
-        paddingHorizontal: 18,
-        borderRadius: 20,
+        paddingVertical: scale(8),
+        paddingHorizontal: scale(16),
+        borderRadius: scale(20),
         borderWidth: 1,
         borderColor: "#db9a4a",
+        marginBottom: scale(6),
     },
+
     activeTab: {
         backgroundColor: "#db9a4a",
     },
+
     tabText: {
-        fontSize: 14,
+        fontSize: scale(13),
         fontWeight: "600",
         color: "#db9a4a",
     },
+
     activeTabText: {
         color: "#FFF",
     },
+
     contentArea: {
-        padding: 20,
-        marginTop: 10,
+        paddingHorizontal: scale(18),
+        paddingTop: scale(10),
     },
+
     horoscopeText: {
-        fontSize: 15,
+        fontSize: scale(15),
         color: "#444",
-        lineHeight: 22,
+        lineHeight: scale(22),
         textAlign: "justify",
-        marginBottom: 20,
+        marginBottom: scale(20),
     },
 });

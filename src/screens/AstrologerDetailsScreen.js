@@ -9,16 +9,14 @@ import {
   TouchableOpacity,
   FlatList,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-const BASE_URL = 'https://api.acharyalavbhushan.com/';
-const { width } = Dimensions.get('window');
+import IMAGE_BASE_URL from '../imageConfig';
 
 const AstrologerDetailsScreen = ({ route, navigation, }) => {
   const { astrologer, mode } = route.params;
-  console.log({ mode })
   const expertiseScrollRef = useRef(null);
   console.log(astrologer?.consultationPrices, 'consultationPrices')
   if (!astrologer) {
@@ -29,8 +27,17 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
     );
   }
 
-  const getImageUrl = (path) =>
-    path?.startsWith('http') ? path : `${BASE_URL}${path}`;
+const getImageUrl = (path) => {
+  if (!path) return null;
+
+  // If already a full URL
+  if (path.startsWith('http')) {
+    return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+  }
+
+  // Relative path from backend
+  return `${IMAGE_BASE_URL}${path}?format=jpg`;
+};
 
   const scrollLeft = (ref) => {
     ref.current?.scrollToOffset({
@@ -47,7 +54,7 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -78,13 +85,17 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
             {astrologer.displayName || astrologer.astrologerName}
           </Text>
           <Text style={styles.tagline}>{astrologer.tagLine}</Text>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>
-              ⭐ {astrologer.avg_rating || 'New'}
-            </Text>
-            <Text style={styles.experienceText}>
-              • {astrologer.experience} Years
-            </Text>
+          <View style={styles.badgesRow}>
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingText}>
+                ⭐ {astrologer.avg_rating || 'New'}
+              </Text>
+            </View>
+            <View style={[styles.infoBadge, { backgroundColor: '#E8F5E9' }]}>
+              <Text style={[styles.infoBadgeText, { color: '#4CAF50' }]}>
+                {astrologer.experience} Years
+              </Text>
+            </View>
           </View>
           <Text style={styles.location}>
             📍 {astrologer.city}, {astrologer.state}
@@ -211,10 +222,10 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
         {astrologer.youtubeLink && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Connect on YouTube</Text>
-            <TouchableOpacity style={styles.socialCard}>
+            <TouchableOpacity style={styles.socialCard} onPress={() => Linking.openURL('https://www.youtube.com/@acharyalavbhushan')}>
               <Icon name="youtube" size={24} color="#FF0000" />
               <Text style={styles.socialText} numberOfLines={1}>
-                {astrologer.youtubeLink}
+                Acharya Lav Bhushan's Youtube Channel
               </Text>
             </TouchableOpacity>
           </View>
@@ -224,7 +235,7 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
       </ScrollView>
 
       {/* Sticky Buttons */}
-      <SafeAreaView style={styles.stickyContainer}>
+      <View style={styles.stickyContainer}>
         {mode === 'voice' ? (
 
           <TouchableOpacity
@@ -268,8 +279,8 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
             <Text style={styles.actionText}>Chat</Text>
           </TouchableOpacity>
         ) : null}
-      </SafeAreaView>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 };
 
@@ -277,16 +288,25 @@ export default AstrologerDetailsScreen;
 
 // 🧾 STYLES (same as your base with minor cleanup)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F4EF' },
-  scrollContent: { paddingBottom: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F4EF',
+  },
+
+  scrollContent: {
+    paddingBottom: 20,
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     elevation: 2,
   },
+
   backButton: {
     width: 40,
     height: 40,
@@ -295,13 +315,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   title: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2C1810',
     flex: 1,
     textAlign: 'center',
+    paddingHorizontal: 8,
   },
+
+  // Profile Card
   profileCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -310,7 +334,20 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
+
+  imageWrapper: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
   image: {
     width: 120,
     height: 120,
@@ -318,33 +355,75 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFD580',
   },
-  name: { fontSize: 22, fontWeight: '700', color: '#2C1810', marginTop: 12 },
+
+  name: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2C1810',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+
   tagline: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 6,
     paddingHorizontal: 20,
     fontStyle: 'italic',
+    lineHeight: 20,
   },
+
+  // Badges Row
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
     backgroundColor: '#FFF5E6',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
-  ratingText: { fontSize: 14, color: '#db9a4a', fontWeight: '600' },
-  experienceText: { fontSize: 14, color: '#666', marginLeft: 8 },
-  location: { fontSize: 13, color: '#777', marginTop: 8 },
+
+  ratingText: {
+    fontSize: 14,
+    color: '#db9a4a',
+    fontWeight: '600',
+  },
+
+  infoBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+
+  infoBadgeText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+
+  location: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 10,
+  },
+
+  // Quick Info Container
   quickInfoContainer: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 12,
+    paddingHorizontal: 16,
+    marginTop: 16,
     gap: 12,
   },
+
   infoCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -352,18 +431,50 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  infoLabel: { fontSize: 12, color: '#999', marginBottom: 4 },
-  infoValue: { fontSize: 14, fontWeight: '600', color: '#2C1810' },
-  section: { marginTop: 20, paddingHorizontal: 16 },
+
+  infoLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+  },
+
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C1810',
+  },
+
+  // Section Styles
+  section: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#2C1810' },
-  arrowContainer: { flexDirection: 'row', gap: 8 },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2C1810',
+    marginBottom: 8,
+  },
+
+  // Arrow Container
+  arrowContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
   arrowButton: {
     width: 32,
     height: 32,
@@ -372,41 +483,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // About Card
   aboutCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#db9a4a',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  aboutText: { fontSize: 14, color: '#555', lineHeight: 22 },
-  horizontalList: { paddingRight: 16 },
+
+  aboutText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+  },
+
+  // Horizontal List (Expertise)
+  horizontalList: {
+    paddingVertical: 4,
+  },
+
   expertiseCard: {
     width: 110,
     marginRight: 12,
+    marginLeft: 4,
+    marginVertical: 4,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 12,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
+
   expertiseImage: {
     width: 70,
     height: 70,
     borderRadius: 35,
     marginBottom: 8,
   },
+
   expertiseText: {
     fontSize: 12,
     textAlign: 'center',
     color: '#2C1810',
     fontWeight: '600',
+    lineHeight: 16,
   },
+
+  // Tiles Container (Skills/Remedies)
   tilesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
+
   skillTile: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -416,8 +556,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E8DCC8',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  skillText: { fontSize: 13, color: '#2C1810', marginLeft: 6 },
+
+  skillText: {
+    fontSize: 13,
+    color: '#2C1810',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+
   remedyTile: {
     backgroundColor: '#FFF9F0',
     paddingHorizontal: 14,
@@ -425,8 +577,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#FFD580',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  remedyText: { fontSize: 13, color: '#2C1810' },
+
+  remedyText: {
+    fontSize: 13,
+    color: '#2C1810',
+    fontWeight: '500',
+  },
+
+  // Price Card
   priceCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -434,9 +598,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 10,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  priceText: { fontSize: 18, fontWeight: '700', color: '#db9a4a' },
+
+  priceLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  durationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C1810',
+    marginBottom: 4,
+  },
+
+  priceSubtext: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  priceRight: {
+    alignItems: 'flex-end',
+  },
+
+  priceText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#db9a4a',
+  },
+
+  // Social Card
   socialCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,8 +642,22 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#FFD580',
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  socialText: { flex: 1, fontSize: 14, color: '#007AFF' },
+
+  socialText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+
+  // Sticky Container (Bottom Buttons)
   stickyContainer: {
     position: 'absolute',
     bottom: 0,
@@ -458,7 +669,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0E8DC',
   },
+
   actionButton: {
     flex: 1,
     flexDirection: 'row',
@@ -466,8 +684,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  voiceButton: { backgroundColor: '#4CAF50' },
-  videoButton: { backgroundColor: '#db9a4a' },
-  actionText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginLeft: 8 },
+
+  voiceButton: {
+    backgroundColor: '#4CAF50',
+  },
+
+  videoButton: {
+    backgroundColor: '#db9a4a',
+  },
+
+  actionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
 });

@@ -18,11 +18,49 @@ import {
   FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import api from '../apiConfig';
 
-const { width, height } = Dimensions.get('screen');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Base design width (Android standard)
+const guidelineBaseWidth = 375;
+
+const scale = (size) => (SCREEN_WIDTH / guidelineBaseWidth) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
 const AstroTalkHome = ({ customerData: propCustomerData }) => {
   const [reviews, setReviews] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const [notifications, setNotifications] = useState([]);
+  const fetchNotifications = async () => {
+    const userData = JSON.parse(await AsyncStorage.getItem('customerData'));
+
+    const res = await axios.get(
+      `${api}/mobile/notifications/${userData._id}`
+    );
+
+    setNotifications(res.data.notifications);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+  const toggleDropdown = () => {
+    if (showDropdown) {
+      Animated.timing(scaleAnim, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }).start(() => setShowDropdown(false));
+    } else {
+      setShowDropdown(true);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
   const flatListRef = useRef(null);
   const currentIndex = useRef(0);
   useEffect(() => {
@@ -110,23 +148,25 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
       image: null,
     }
   );
-  // useEffect(()=>{
 
-  // })
-  const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
+  const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.8)).current;
 
   const drawerData = [
-    { title: 'Home', icon: 'home-outline' },
+    // { title: 'Home', icon: 'home-outline' },
+    { title: 'Profile', icon: 'account' },
     { title: 'My Consultations', icon: 'calendar-check-outline' },
     // { title: 'Order History', icon: 'history' },
     { title: 'Free Kundli', icon: 'book-open-page-variant' },
-    { title: 'About Us', icon: 'book-open-page-variant' },
+    { title: 'About Us', icon: 'account-tie' },
+    { title: 'Blogs', icon: 'newspaper-variant' },
+    { title: 'Contact Us', icon: 'headset' },
     // { title: 'Astrology Blog', icon: 'book-open-page-variant' },
     // { title: 'Chat With Astrologers', icon: 'chat-outline' },
     // { title: 'Free Service', icon: 'gift-outline' },
     // { title: 'Customer Support', icon: 'headset' },
     // { title: 'Settings', icon: 'cog-outline' },
     { title: 'Logout', icon: 'logout' },
+    { title: 'Delete Account', icon: 'delete' },
   ];
 
   const toggleDrawer = () => {
@@ -139,7 +179,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
       }).start();
     } else {
       Animated.timing(slideAnim, {
-        toValue: -width * 0.8,
+        toValue: -SCREEN_WIDTH * 0.8,
         duration: 300,
         useNativeDriver: true,
       }).start(() => {
@@ -166,6 +206,10 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
       },
     ]);
   };
+  const handleSupport = () => {
+    setSupportModalVisible(true);
+  };
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
 
   const handleNavigation = (item) => {
     const { title } = item;
@@ -184,8 +228,17 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
       case 'About Us':
         navigation.navigate('About Us');
         break;
+      case 'Blogs':
+        navigation.navigate('Blogs');
+        break;
+      case 'Profile':
+        navigation.navigate('SignUp', { isProfile: true });
+        break;
       case 'Logout':
         handleLogout();
+        break;
+      case 'Contact Us':
+        handleSupport();
         break;
       case 'Astro Remedy':
         Linking.openURL('https://lifechangingastro.com/').catch(() =>
@@ -197,16 +250,114 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         break;
     }
   };
-  const BASE_URL = 'https://api.acharyalavbhushan.com/uploads/';
+  const BASE_URL = 'https://alb-web-assets.s3.ap-south-1.amazonaws.com/';
 
   const getImageUrl = (path) =>
     path?.startsWith('http') ? path : `${BASE_URL}${path}`;
   let Imguri = getImageUrl(customerData.image);
-  console.log(Imguri, 'Imguri')
-  // let Imguri = customerData.image;
-  // const isDefault = Imguri?.endsWith('user_default.jpg');
-  // if (isDefault) Imguri = null;
-  console.log(customerData)
+
+  const youtubeVideos = [
+    { id: 1, url: "https://youtu.be/gJcMN2tIVT8?si=uXBmL-MptKmILxde", title: "Astrology & Real Life Incidents" },
+    { id: 2, url: "https://youtu.be/7k1kigASoig?si=9qv-nn6Z1yTi5kMF", title: "Acharya Ji ne khola crorepati banne ka asli formula" },
+    { id: 3, url: "https://youtu.be/s0TrbB1_qQU?si=P1Sx8mdtEnw_h-5j", title: "Why GenZ is Depressed & Struggling" },
+  ];
+
+  const getYouTubeThumbnail = (url) => {
+    let videoId = null;
+    if (url.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1].split("?")[0];
+    }
+    else if (url.includes("v=")) {
+      videoId = url.split("v=")[1].split("&")[0];
+    }
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  };
+  const [upcomingConsultations, setUpcomingConsultations] = useState([]);
+  const toDateFromTime = (dateObj, timeStr) => {
+    if (!dateObj || !timeStr) return null;
+
+    const [h, m] = timeStr.split(":").map(Number);
+    const d = new Date(dateObj);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
+  const fetchUpcomingConsultations = async () => {
+    try {
+      const raw = await AsyncStorage.getItem("customerData");
+      const customerData = raw ? JSON.parse(raw) : null;
+      if (!customerData?._id) return;
+
+      const res = await axios.get(
+        `${api}/mobile/user-consultations/${customerData._id}`
+      );
+
+      if (!res?.data?.success) return;
+
+      const now = new Date();
+      const todayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+
+      const upcoming = res.data.bookings
+        // 1️⃣ only booked
+        .filter(b => b.status === "booked")
+
+        // 2️⃣ valid date + time
+        .filter(b => b.date && b.fromTime && b.toTime)
+
+        // 3️⃣ date >= today AND not expired
+        .filter(b => {
+          const bookingDate = new Date(b.date);
+          const bookingDay = new Date(
+            bookingDate.getFullYear(),
+            bookingDate.getMonth(),
+            bookingDate.getDate()
+          );
+
+          if (bookingDay < todayStart) return false;
+
+          const endTime = toDateFromTime(bookingDate, b.toTime);
+          return endTime && endTime > now;
+        })
+
+        // 4️⃣ sort by start datetime
+        .sort((a, b) => {
+          const aStart = toDateFromTime(new Date(a.date), a.fromTime);
+          const bStart = toDateFromTime(new Date(b.date), b.fromTime);
+          return aStart - bStart;
+        })
+
+        // 5️⃣ top 3
+        .slice(0, 3);
+      console.log(upcoming, 'upcoming')
+      setUpcomingConsultations(upcoming);
+
+    } catch (err) {
+      console.log("Upcoming Fetch Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUpcomingConsultations();
+  }, []);
+  const handleNotificationPress = async (item) => {
+    await axios.patch(`${api}/mobile/notifications/${item._id}/read`);
+
+    if (item.type === 'incoming_call') {
+      navigation.navigate('UserIncomingCallPopup', {
+        booking: JSON.parse(item.data.booking),
+        astrologerData: JSON.parse(item.data.astrologerData),
+        channelName: item.data.channelName,
+      });
+    }
+
+    toggleDropdown();
+  };
+  const unreadNotifications = notifications?.filter(n => !n?.isRead) || [];
+  const hasUnread = unreadNotifications.length > 0;
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -220,23 +371,18 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          {/* ✅ Logo added here */}
-
-          {/* <Image
-            source={require('../assets/images/logoBlack.png')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          /> */}
           <View>
             <Text style={styles.headerTitle}>AstroBook</Text>
             <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.notificationButton}>
+        <TouchableOpacity style={styles.notificationButton} onPress={toggleDropdown}>
           <Icon name="bell-outline" size={24} color="black" />
-          <View style={styles.notificationBadge} />
+          {hasUnread && <View style={styles.notificationBadge} />}
+
         </TouchableOpacity>
+
       </View>
 
 
@@ -245,7 +391,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
           <View style={styles.bannerGradient}>
-            <Text style={styles.bannerTitle}>Hi {customerData?.customerName}</Text>
+            <Text style={styles.bannerTitle}>Hi {customerData?.customerName != '' ? customerData?.customerName : 'User'}</Text>
             <Text style={styles.bannerTitle}>Talk to India's Best</Text>
             <Text style={styles.bannerTitleHighlight}>Astrologers</Text>
             <Text style={styles.bannerSubtitle}>Get accurate predictions & personalized remedies</Text>
@@ -285,7 +431,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                 <Icon name="phone-in-talk" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Voice Call</Text>
-              <Text style={styles.actionSubtext}>with Expert</Text>
+              {/* <Text style={styles.actionSubtext}>With Expert</Text> */}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
@@ -293,7 +439,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                 <Icon name="video-outline" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Video Call</Text>
-              <Text style={styles.actionSubtext}>Face to Face</Text>
+              {/* <Text style={styles.actionSubtext}>Face to Face</Text> */}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'chat' })}>
@@ -301,19 +447,117 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                 <Icon name="chat-outline" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Chat</Text>
-              <Text style={styles.actionSubtext}>Instant Reply</Text>
+              {/* <Text style={styles.actionSubtext}>Instant Reply</Text> */}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PoojaList')}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="campfire" size={28} color="#fff" />
               </View>
-              <Text style={styles.actionText}>Puja</Text>
-              <Text style={styles.actionSubtext}>Book Online Puja</Text>
+              <Text style={styles.actionText}>Book Pooja</Text>
+              {/* <Text style={styles.actionSubtext}>Book Online Puja</Text> */}
             </TouchableOpacity>
           </View>
         </View>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Consultations</Text>
+            {upcomingConsultations.length !== 0 ? (
+              <TouchableOpacity onPress={() => navigation.navigate('UserConsultationList')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
+          {upcomingConsultations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Icon name="crystal-ball" size={60} color="#db9a4a" style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>No Upcoming Consultations</Text>
+            </View>
+          ) : (
+            upcomingConsultations.map((item, index) => {
+              const astrologer = item.astrologer || {};
+              const startStr = item.fromTime;
+
+              const bookingDate = new Date(item.date);
+
+              const getModeIcon = (mode) => {
+                switch (mode?.toLowerCase()) {
+                  case "call":
+                    return "phone"; // or "call-outline"
+                  case "videocall":
+                    return "video-outline"; // or "videocam-outline"
+                  case "chat":
+                    return "chat-outline"; // or "chatbubble-outline"
+                  default:
+                    return "help-circle-outline";
+                }
+              };
+              const getDurationInMinutes = (fromTime, toTime) => {
+                if (!fromTime || !toTime) return 0;
+
+                const [fromH, fromM] = fromTime.split(':').map(Number);
+                const [toH, toM] = toTime.split(':').map(Number);
+
+                const fromTotal = fromH * 60 + fromM;
+                const toTotal = toH * 60 + toM;
+
+                return toTotal - fromTotal;
+              };
+
+              return (
+                <View key={index} style={styles.consultationCard}>
+                  <View style={styles.consultationAvatar}>
+                    <Text style={styles.consultationAvatarText}>
+                      {astrologer?.name.charAt(0)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.consultationInfo}>
+                    <Text style={styles.consultationName}>
+                      {astrologer?.name || 'Unknown'}
+                    </Text>
+
+                    {/* MODE + DURATION ROW */}
+                    <View style={styles.consultationTime}>
+                      <Icon
+                        name={getModeIcon(item.consultationType)}
+                        size={16}
+                        color="#7F1D1D"
+                      />
+
+                      <Text style={styles.consultationTopic}> | </Text>
+
+                      <Text style={styles.consultationTopic}>
+                        {getDurationInMinutes(item.fromTime, item.toTime)} min
+                      </Text>
+                    </View>
+
+                    {/* DATE */}
+                    <View style={styles.consultationTime}>
+                      <Icon name="calendar" size={12} color="#999" />
+                      <Text style={styles.consultationTimeText}>
+                        {bookingDate.toDateString()}
+                      </Text>
+                    </View>
+                  </View>
+
+
+                  {/* {isJoinTime ? (
+                    <TouchableOpacity style={styles.joinButton} onPress={() => handleJoin(item)}>
+                      <Text style={styles.joinButtonText}>Join</Text>
+                    </TouchableOpacity>
+                  ) : ( */}
+                  <View style={styles.timeButton}>
+                    <Text style={styles.timeButtonText}>{startStr || '-'}</Text>
+                  </View>
+                  {/* )} */}
+                </View>
+
+              );
+            })
+          )}
+        </View>
         {/* Free Services */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -403,7 +647,21 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
               <Icon name="arrow-right" size={24} color="#db9a4a" />
             </View>
           </TouchableOpacity>
-
+          <TouchableOpacity style={styles.specialCard} onPress={() => Linking.openURL("https://lifechangingastro.com/")}>
+            <View style={styles.specialLeft}>
+              <Icon name="store" size={36} color="#db9a4a" />
+            </View>
+            <View style={styles.specialMiddle}>
+              <Text style={styles.specialTitle}>AstroBook Store - Shop Now</Text>
+              <Text style={styles.specialDescription}>Life Changing Astro</Text>
+              <View style={styles.specialRating}>
+                {/* <Text style={styles.specialRatingText}>⭐ 4.9 • 2K+ bookings</Text> */}
+              </View>
+            </View>
+            <View style={styles.specialRight}>
+              <Icon name="arrow-right" size={24} color="#db9a4a" />
+            </View>
+          </TouchableOpacity>
           {/* <TouchableOpacity style={styles.specialCard}>
             <View style={styles.specialLeft}>
               <Icon name="om" size={36} color="#db9a4a" />
@@ -435,14 +693,102 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             keyExtractor={(item) => item._id}
           />
         </View>
+        {/* YouTube Videos Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Watch Our Videos</Text>
+
+          <FlatList
+            data={youtubeVideos}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.videoCard}
+                onPress={() => Linking.openURL(item.url)}
+              >
+                <Image
+                  source={{ uri: getYouTubeThumbnail(item.url) }}
+                  style={styles.videoThumbnail}
+                />
+                <Text style={styles.videoTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
 
         {/* Bottom Spacing */}
         <View style={{ height: 30 }} />
       </ScrollView>
+      <Modal
+        transparent={true}
+        visible={supportModalVisible}
+        animationType="fade"
+        onRequestClose={() => setSupportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+
+            <Text style={styles.modalTitle}>Contact Information</Text>
+
+            {/* Email */}
+            <View style={styles.row}>
+              <Icon name="email-outline" size={22} color="#db9a4a" />
+              <View style={styles.col}>
+                <Text style={styles.label}>Email</Text>
+                <Text style={styles.value}>info@acharyalavbhushan.com</Text>
+              </View>
+            </View>
+
+            {/* Website Queries */}
+            <View style={styles.row}>
+              <Icon name="phone" size={22} color="#db9a4a" />
+              <View style={styles.col}>
+                <Text style={styles.label}>Consultation related queries</Text>
+                <Text style={styles.value}>+91 92579 91666</Text>
+              </View>
+            </View>
+
+            {/* Reports Queries */}
+            {/* <View style={styles.row}>
+              <Icon name="phone" size={22} color="#db9a4a" />
+              <View style={styles.col}>
+                <Text style={styles.label}>Reports related queries</Text>
+                <Text style={styles.value}>+91 97837 62666</Text>
+              </View>
+            </View> */}
+
+            {/* Address */}
+            <View style={styles.row}>
+              <Icon name="map-marker-outline" size={24} color="#db9a4a" />
+              <View style={styles.col}>
+                <Text style={styles.label}>Office</Text>
+                <Text style={styles.value}>
+                  Plot no. 177, Near Suresh Gyan Vihar University,{"\n"}
+                  OBC Colony, Jagatpura,{"\n"}
+                  Jaipur, Rajasthan
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setSupportModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+
+          </View>
+        </View>
+      </Modal>
+
+
 
       {/* Drawer Modal */}
       <Modal visible={drawerVisible} animationType="fade" transparent onRequestClose={toggleDrawer}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={toggleDrawer}>
+        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={toggleDrawer}>
           <Animated.View style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={{ flex: 1 }}>
               <ScrollView>
@@ -496,7 +842,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                     {/* Facebook */}
                     <TouchableOpacity
                       style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.facebook.com/')}
+                      onPress={() => Linking.openURL('https://www.facebook.com/acharyalavbhushan09/')}
                     >
                       <Icon name="facebook" size={26} color="#9C7A56" />
                     </TouchableOpacity>
@@ -504,7 +850,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                     {/* Instagram */}
                     <TouchableOpacity
                       style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.instagram.com/')}
+                      onPress={() => Linking.openURL('https://www.instagram.com/acharyalavbhushan/')}
                     >
                       <Icon name="instagram" size={26} color="#9C7A56" />
                     </TouchableOpacity>
@@ -512,9 +858,15 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                     {/* LinkedIn */}
                     <TouchableOpacity
                       style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.linkedin.com/')}
+                      onPress={() => Linking.openURL('https://www.linkedin.com/in/acharyalavbhushan/')}
                     >
                       <Icon name="linkedin" size={26} color="#9C7A56" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.socialButton}
+                      onPress={() => Linking.openURL('https://www.youtube.com/@acharyalavbhushan')}
+                    >
+                      <Icon name="youtube" size={26} color="#9C7A56" />
                     </TouchableOpacity>
 
                   </View>
@@ -525,77 +877,195 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+      {showDropdown && (
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={toggleDropdown}
+        >
+          <Animated.View
+            style={[
+              styles.dropdownContainer,
+              { transform: [{ scale: scaleAnim }] }
+            ]}
+          >
+            {/* Arrow */}
+            <View style={styles.arrowUp} />
+
+            <View style={styles.dropdownBox}>
+              <Text style={styles.title}>Notifications</Text>
+
+              <ScrollView style={{ maxHeight: 250 }}>
+                {notifications.length === 0 ? (
+                  <Text style={{ color: '#777', textAlign: 'center' }}>
+                    No notifications
+                  </Text>
+                ) : (
+                  notifications
+                    .filter(item => !item?.isRead)
+                    .map(item => (
+                      <TouchableOpacity
+                        key={item._id}
+                        style={styles.notificationItem}
+                      // onPress={() => handleNotificationPress(item)}
+                      >
+                        <Text style={styles.notificationText}>
+                          • {item.title}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                )}
+
+              </ScrollView>
+
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
+
     </View>
   );
 };
 
 export default AstroTalkHome;
 
-
 const styles = StyleSheet.create({
-  card: {
-    width: width * 0.9,
-    backgroundColor: "#FFFFFF",
-    marginRight: 16,
-    padding: 20,
-    borderRadius: 16,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: "#db9a4a",
-  },
-  reviewText: {
-    fontSize: 14,
-    color: "#444",
-    lineHeight: 20,
-    marginBottom: 16,
-    fontStyle: "italic",
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatarFallback: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#db9a4a",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  avatarInitial: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2C1810",
-  },
-  rating: {
-    fontSize: 12,
-    color: "#db9a4a",
-    marginTop: 2,
-  },
-
   container: {
     flex: 1,
     backgroundColor: '#F8F4EF',
   },
+  emptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,        // ⬅️ make box rounded
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    // subtle shadow
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  emptyText: {
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  consultationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#db9a4a',
+  },
+
+  consultationAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#db9a4a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  consultationAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  consultationInfo: {
+    flex: 1,
+  },
+
+  consultationName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2C1810',
+    marginBottom: 4,
+  },
+
+  consultationTopic: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+    marginTop: 4,
+  },
+
+  consultationTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  consultationTimeText: {
+    fontSize: 12,
+    color: '#999',
+  },
+
+  joinButton: {
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+
+  joinButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  timeButton: {
+    backgroundColor: '#FFF5E6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#db9a4a',
+  },
+
+  timeButtonText: {
+    color: '#db9a4a',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  viewAllText: {
+    color: '#db9a4a',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Header Styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#fff',
     elevation: 3,
-    marginTop: 30
+    marginTop: 30,
   },
 
   menuButton: {
@@ -613,9 +1083,8 @@ const styles = StyleSheet.create({
   },
 
   headerCenter: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    gap: 0, // for spacing between logo and text
   },
 
   headerLogo: {
@@ -650,14 +1119,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'red',
   },
 
-
   notificationIcon: {
     fontSize: 20,
   },
 
+  // Content Styles
   content: {
     flex: 1,
   },
+
+  // Hero Banner
   heroBanner: {
     backgroundColor: '#7F1D1D',
     marginHorizontal: 16,
@@ -667,26 +1138,31 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+
   bannerGradient: {
     zIndex: 1,
   },
+
   bannerTitle: {
     fontSize: 24,
     fontWeight: '300',
     color: '#FFFFFF',
   },
+
   bannerTitleHighlight: {
     fontSize: 32,
     fontWeight: '700',
     color: '#FFFFFF',
     marginTop: -4,
   },
+
   bannerSubtitle: {
     fontSize: 13,
     color: '#FFF5E6',
     marginTop: 8,
     opacity: 0.9,
   },
+
   bannerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -697,32 +1173,39 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginTop: 16,
   },
+
   bannerButtonText: {
     color: '#db9a4a',
     fontWeight: '700',
     fontSize: 14,
     marginRight: 8,
   },
+
   bannerButtonIcon: {
     color: '#db9a4a',
     fontSize: 16,
     fontWeight: 'bold',
   },
+
   bannerDecoration: {
     position: 'absolute',
     right: -10,
     top: -10,
     opacity: 0.15,
   },
+
   bannerEmoji: {
     fontSize: 120,
   },
+
+  // Stats Row
   statsRow: {
     flexDirection: 'row',
-    marginHorizontal: 16,
+    paddingHorizontal: 16,
     marginTop: 16,
     gap: 10,
   },
+
   statBox: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -735,54 +1218,67 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
+
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
     color: '#db9a4a',
   },
+
   statLabel: {
     fontSize: 11,
     color: '#666',
     marginTop: 4,
     textAlign: 'center',
   },
+
+  // Section Styles
   section: {
     marginTop: 24,
     paddingHorizontal: 16,
   },
+
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
+
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#2C1810',
     marginBottom: 4,
   },
+
   sectionSubtitle: {
     fontSize: 12,
     color: '#666',
   },
+
   viewAllButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  viewAllText: {
-    color: '#db9a4a',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+
+  // viewAllText: {
+  //   color: '#db9a4a',
+  //   fontSize: 13,
+  //   fontWeight: '600',
+  // },
+
+  // Actions Grid
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
     marginTop: 12,
   },
+
   actionCard: {
-    width: (width - 44) / 2,
+    width: (SCREEN_WIDTH - 44) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -793,6 +1289,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
+
   actionIconWrapper: {
     width: 60,
     height: 60,
@@ -801,29 +1298,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+
   actionEmoji: {
     fontSize: 28,
   },
+
   actionText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#2C1810',
     textAlign: 'center',
   },
+
   actionSubtext: {
     fontSize: 11,
     color: '#999',
     marginTop: 2,
   },
+
+  // Free Services Scroll
   servicesScroll: {
-    paddingRight: 16,
+    paddingVertical: 4,
   },
+
   serviceCardEnhanced: {
     width: 140,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginRight: 12,
+    marginLeft: 4,
+    marginVertical: 4,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -831,6 +1336,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     position: 'relative',
   },
+
   serviceIconContainer: {
     width: 50,
     height: 50,
@@ -840,19 +1346,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+
   serviceEmoji: {
     fontSize: 24,
   },
+
   serviceTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2C1810',
     marginBottom: 4,
   },
+
   serviceDescription: {
     fontSize: 11,
     color: '#666',
   },
+
   serviceBadge: {
     position: 'absolute',
     top: 12,
@@ -862,11 +1372,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
+
   serviceBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '700',
   },
+
+  // Special Card
   specialCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -880,6 +1393,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     alignItems: 'center',
   },
+
   specialLeft: {
     width: 60,
     height: 60,
@@ -889,30 +1403,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+
   specialIcon: {
     fontSize: 28,
   },
+
   specialMiddle: {
     flex: 1,
+    paddingRight: 8,
   },
+
   specialTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2C1810',
     marginBottom: 4,
   },
+
   specialDescription: {
     fontSize: 12,
     color: '#666',
     marginBottom: 6,
   },
+
   specialRating: {
     flexDirection: 'row',
   },
+
   specialRatingText: {
     fontSize: 11,
     color: '#999',
   },
+
   specialRight: {
     width: 32,
     height: 32,
@@ -921,17 +1443,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   specialArrow: {
     fontSize: 18,
     color: '#db9a4a',
     fontWeight: 'bold',
   },
-  testimonialCard: {
+
+  // Testimonial Card
+  card: {
+    width: SCREEN_WIDTH - 64,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    marginRight: 16,
+    marginLeft: 4,
+    marginVertical: 4,
     padding: 20,
-    marginTop: 12,
-    elevation: 2,
+    borderRadius: 16,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -939,81 +1467,233 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#db9a4a',
   },
-  quoteIcon: {
-    marginBottom: 8,
-  },
-  quoteText: {
-    fontSize: 40,
-    color: '#FFD580',
-    fontWeight: 'bold',
-    lineHeight: 40,
-  },
-  testimonialText: {
+
+  reviewText: {
     fontSize: 14,
-    color: '#555',
-    lineHeight: 22,
+    color: '#444',
+    lineHeight: 20,
     marginBottom: 16,
     fontStyle: 'italic',
   },
-  testimonialFooter: {
+
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  testimonialAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 21,
+  },
+
+  avatarFallback: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#db9a4a',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  testimonialAvatarText: {
-    color: '#FFFFFF',
+
+  avatarInitial: {
+    color: '#fff',
+    fontSize: 18,
     fontWeight: '700',
-    fontSize: 14,
   },
-  testimonialName: {
+
+  name: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2C1810',
   },
-  testimonialRating: {
+
+  rating: {
     fontSize: 12,
+    color: '#db9a4a',
     marginTop: 2,
   },
+
+  // YouTube Video Card
+  videoCard: {
+    width: 200,
+    marginRight: 12,
+    marginLeft: 4,
+    marginVertical: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+
+  videoThumbnail: {
+    width: '100%',
+    height: 120,
+  },
+
+  videoTitle: {
+    padding: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2C1810',
+  },
+
+  // Modal Overlay (Notifications)
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
+  dropdownContainer: {
+    position: 'absolute',
+    top: 55,
+    right: 15,
+    zIndex: 999,
+    alignItems: 'flex-end',
+  },
+
+  arrowUp: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#db9a4a',
+    marginRight: 12,
+    marginTop: 18
+  },
+
+  dropdownBox: {
+    width: 250,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+
+  title: {
+    fontWeight: '700',
+    marginBottom: 10,
+    fontSize: 16,
+  },
+
+  notificationItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderColor: '#ddd',
+  },
+
+  notificationText: {
+    fontSize: 14,
+    color: '#333',
+  },
+
+  // Support Modal
   modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    padding: 18,
+    borderRadius: 14,
+    elevation: 8,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2C1810',
+    marginBottom: 10,
+    textAlign: 'left',
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 10,
+  },
+
+  col: {
+    flex: 1,
+  },
+
+  label: {
+    fontSize: 12,
+    color: '#9C7A56',
+    marginBottom: 2,
+  },
+
+  value: {
+    fontSize: 14,
+    color: '#2C1810',
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
+  modalButton: {
+    marginTop: 10,
+    backgroundColor: '#db9a4a',
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Drawer Styles
+  drawerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     flexDirection: 'row',
     justifyContent: 'flex-start',
   },
+
   drawerContainer: {
-    width: width * 0.8,
-    height: height,
+    width: SCREEN_WIDTH * 0.8,
+    maxWidth: 320,
+    height: SCREEN_HEIGHT,
     backgroundColor: '#FFFFFF',
   },
+
   drawerHeader: {
     backgroundColor: '#db9a4a',
-    paddingTop: 20,
+    paddingTop: 50,
     paddingBottom: 24,
     borderBottomRightRadius: 24,
   },
+
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+
   avatarWrapper: {
     position: 'relative',
   },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
+
   avatarBadge: {
     position: 'absolute',
     bottom: 0,
@@ -1027,25 +1707,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   avatarBadgeText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
+
   userInfo: {
     marginLeft: 12,
     flex: 1,
   },
+
   userName: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+
   phoneText: {
     fontSize: 13,
     color: '#FFF5E6',
     marginTop: 2,
   },
+
   premiumBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignSelf: 'flex-start',
@@ -1054,42 +1739,50 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 6,
   },
+
   premiumText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
   },
+
   menuWrapper: {
     paddingTop: 16,
   },
+
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
+
   menuIconWrapper: {
     width: 30,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
   },
+
   menuIcon: {
     width: 20,
     height: 20,
     resizeMode: 'contain',
   },
+
   menuText: {
     fontSize: 15,
     color: '#2C1810',
     fontWeight: '500',
     flex: 1,
   },
+
   menuArrow: {
     fontSize: 24,
     color: '#999',
     fontWeight: '300',
   },
+
   socialWrapper: {
     marginTop: 24,
     paddingHorizontal: 20,
@@ -1097,17 +1790,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0E8DC',
   },
+
   socialText: {
     fontSize: 13,
     color: '#666',
     marginBottom: 12,
     fontWeight: '600',
   },
+
   socialRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+
   socialButton: {
     width: 44,
     height: 44,
@@ -1121,21 +1817,89 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
+
   socialIcon: {
     width: 24,
     height: 24,
     resizeMode: 'contain',
   },
+
   socialIconSmall: {
     width: 20,
     height: 20,
     resizeMode: 'contain',
   },
+
   versionText: {
     color: '#999',
     fontSize: 11,
     textAlign: 'center',
     marginTop: 24,
     marginBottom: 24,
+  },
+
+  testimonialCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#db9a4a',
+  },
+
+  quoteIcon: {
+    marginBottom: 8,
+  },
+
+  quoteText: {
+    fontSize: 40,
+    color: '#FFD580',
+    fontWeight: 'bold',
+    lineHeight: 40,
+  },
+
+  testimonialText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+
+  testimonialFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  testimonialAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#db9a4a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  testimonialAvatarText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  testimonialName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C1810',
+  },
+
+  testimonialRating: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

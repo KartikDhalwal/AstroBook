@@ -6,7 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  Platform
+  Platform,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,20 +17,20 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../apiConfig';
 import RazorpayCheckout from 'react-native-razorpay';
 import { Calendar } from 'react-native-calendars';
-import { Modal } from 'react-native';
 
-const SelectSlotScreen = ({ route }) => {
+const SelectSlotScreenReschedule = ({ route }) => {
   const navigation = useNavigation();
-  const { astrolger, mode } = route.params || {};
+  const { astrolgerId, id, mode, booking } = route.params || {};
+  console.log({ booking })
+  const [astrolger, setastrolger] = useState(null);
+  const [consultationPrices, setConsultationPrices] = useState([]);
+
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 2);
-  const consultationPrices = astrolger?.consultationPrices || [];
-  consultationPrices.sort(
-    (a, b) => a.duration.slotDuration - b.duration.slotDuration
-  );
-  const [selectedMode, setSelectedMode] = useState(mode || null);
-  const [selectedDuration, setSelectedDuration] = useState(consultationPrices[0]);
-  const [selectedDate, setSelectedDate] = useState(null);
+
+  const [selectedMode, setSelectedMode] = useState(booking?.consultationType || null);
+  const [selectedDuration, setSelectedDuration] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
   const [slotId, setSlotId] = useState(null);
@@ -37,117 +38,182 @@ const SelectSlotScreen = ({ route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [enabledDates, setEnabledDates] = useState([]);
 
-  // useEffect(() => {
-  //   if (!selectedDate) return
-  //   onChangeDate(selectedDate)
-  // }, [selectedDate])
+  /* ---------------- FETCH ASTROLOGER ---------------- */
+useEffect(() => {
+  if (!astrolger?.consultationPrices || !booking?.duration) return;
 
-  useEffect(() => {
-    if (!selectedDuration) return
-    fetchSlotDatesByDuration(selectedDuration)
-  }, [selectedDuration])
+  const prices = [...astrolger.consultationPrices].sort(
+    (a, b) => a.duration.slotDuration - b.duration.slotDuration
+  );
 
+  setConsultationPrices(prices);
 
+  // 🔒 lock duration from booking
+  const bookedDuration = prices.find(
+    p => p.duration.slotDuration === booking?.duration
+  );
 
+  setSelectedDuration(bookedDuration || prices[0]);
+}, [astrolger, booking]);
 
-  const fetchSlotDatesByDuration = async (durationItem) => {
-    if (!durationItem?.duration?.slotDuration) return;
+  const fetchAstrologerDetails = async (astroId) => {
     setIsLoading(true);
-
     try {
-      const currentDate = new Date();
-      const formattedCurrentDate = currentDate.toISOString().slice(0, 10);
-      const formattedCurrentTime = `${currentDate
-        .getHours()
-        .toString()
-        .padStart(2, "0")}:${currentDate
-          .getMinutes()
-          .toString()
-          .padStart(2, "0")}`;
-
-      const durationValue = durationItem.duration.slotDuration;
-      const res = await axios.get(
-        `${api}/astrologer/get_slots_date_duration/${astrolger?._id}?duration=${durationValue}&currentDate=${formattedCurrentDate}&currentTime=${formattedCurrentTime}`,
-        { headers: { "Content-Type": "application/json" } }
-
+      const response = await axios.post(
+        `${api}/astrologer/get-astrologer-details`,
+        { astrologerId: astroId },
+        { headers: { 'Content-Type': 'application/json' } }
       );
-      const dates =
-        res.data?.slotDates?.map((d) => d.slice(0, 10)) || [];
 
-      setEnabledDates(dates);
-    } catch (err) {
-      console.log("Slot date API error:", err);
-      setEnabledDates([]);
-      Alert.alert("Error", "Unable to fetch available dates");
+      if (response?.data?.success) {
+        setastrolger(response.data.astrologer);
+
+      } else {
+        Alert.alert('No Data', 'Astrologer details not found.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch astrologer details.');
     } finally {
       setIsLoading(false);
     }
   };
-useEffect(() => {
-  if (enabledDates.length > 0 && !selectedDate) {
-    const firstEnabled = enabledDates[0]; // STRING
-    setSelectedDate(firstEnabled);
-    onChangeDate(firstEnabled);
-  }
-}, [enabledDates]);
-const formatDisplayDate = (dateStr) => {
-  if (!dateStr) return "";
-  return new Date(dateStr + "T00:00:00").toDateString();
-};
 
+  useEffect(() => {
+    if (astrolgerId) fetchAstrologerDetails(astrolgerId);
+  }, [astrolgerId]);
 
-const onChangeDate = async (selectedStr) => {
-  if (!enabledDates.includes(selectedStr)) {
-    Alert.alert(
-      "Date Unavailable",
-      "No slots available for the selected duration on this date."
+  /* ---------------- CONSULTATION PRICES ---------------- */
+
+  useEffect(() => {
+    if (!astrolger?.consultationPrices) return;
+
+    const prices = [...astrolger.consultationPrices].sort(
+      (a, b) => a.duration.slotDuration - b.duration.slotDuration
     );
-    return;
+
+    setConsultationPrices(prices);
+    setSelectedDuration(prices[0] || null);
+  }, [astrolger]);
+
+  /* ---------------- ENABLED DATES ---------------- */
+
+useEffect(() => {
+  if (selectedDuration && booking) {
+    fetchSlotDatesByDuration(selectedDuration);
   }
+}, [selectedDuration, booking]);
 
-  setSelectedDate(selectedStr); // store STRING
 
-
-    const now = new Date();
-    const formattedCurrentDate = formatDate(now);
-    const formattedCurrentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-      now.getMinutes()
-    ).padStart(2, "0")}`;
-
-    const durationValue = selectedDuration?.duration?.slotDuration;
+  const fetchSlotDatesByDuration = async (durationItem) => {
+    if (!durationItem?.duration?.slotDuration) return;
 
     setIsLoading(true);
     try {
-      const response = await axios.get(
-        `${api}/astrologer/get_slots_gen/${astrolger?._id}/by-date`,
+      const now = new Date();
+      const res = await axios.get(
+        `${api}/astrologer/get_slots_date_duration/${astrolger?._id}`,
         {
           params: {
-            currentDate: formattedCurrentDate,
-            currentTime: formattedCurrentTime,
-            duration: durationValue,
-            date: selectedStr,
+            duration: durationItem.duration.slotDuration,
+            currentDate: now.toISOString().slice(0, 10),
+            currentTime: `${now.getHours().toString().padStart(2, "0")}:${now
+              .getMinutes()
+              .toString()
+              .padStart(2, "0")}`,
           },
         }
       );
 
-      const slotList =
-        response.data?.SlotTimeByDuration?.[`${durationValue}min`] || [];
+      const dates = res.data?.slotDates?.map(d => d.slice(0, 10)) || [];
+      console.log({ dates })
+      setEnabledDates(dates);
+    } catch {
+      setEnabledDates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ---------------- DATE CHANGE ---------------- */
+
+  const onChangeDate = async (event, selected) => {
+    if (!selected) return;
+
+    const selectedStr = selected.toISOString().slice(0, 10);
+
+    if (!enabledDates.includes(selectedStr)) {
+      Alert.alert("Date Unavailable", "No slots available for this date.");
+      return;
+    }
+
+    setSelectedDate(selected);
+    setIsLoading(true);
+
+    try {
+      const now = new Date();
+      const response = await axios.get(
+        `${api}/astrologer/get_slots_gen/${astrolger?._id}/by-date`,
+        {
+          params: {
+            date: selectedStr,
+            duration: selectedDuration.duration.slotDuration,
+            currentDate: now.toISOString().slice(0, 10),
+            currentTime: `${now.getHours().toString().padStart(2, "0")}:${now
+              .getMinutes()
+              .toString()
+              .padStart(2, "0")}`,
+          },
+        }
+      );
+
+      const key = `${selectedDuration.duration.slotDuration}min`;
+      const slots = response.data?.SlotTimeByDuration?.[key] || [];
 
       setAvailableSlots(
-        slotList.map((slot) => ({
+        slots.map(slot => ({
           id: slot._id,
           time: `${slot.fromTime} - ${slot.toTime}`,
           isBooked: slot.status !== "available",
         }))
       );
-    } catch (err) {
+    } catch {
       setAvailableSlots([]);
-      Alert.alert("Error", "Unable to fetch slots");
     } finally {
       setIsLoading(false);
     }
   };
 
+  /* ---------------- MARKED DATES ---------------- */
+
+  const getMarkedDates = () => {
+    const marked = {};
+    const today = new Date();
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+
+      marked[key] = {
+        disabled: true,
+        disableTouchEvent: true,
+        color: '#eee',
+      };
+    }
+
+    enabledDates.forEach((date) => {
+      marked[date] = {
+        disabled: false,
+        disableTouchEvent: false,
+        selected: selectedDate?.toISOString().slice(0, 10) === date,
+        selectedColor: '#db9a4a',
+      };
+    });
+
+    return marked;
+  };
+
+  const isConfirmEnabled =
+    selectedMode && selectedDuration && selectedDate && selectedTime;
 
 
   const handleConfirm = async () => {
@@ -161,98 +227,20 @@ const onChangeDate = async (selectedStr) => {
       const customerData = JSON.parse(
         await AsyncStorage.getItem("customerData")
       );
-      console.log({
-        amount: selectedDuration.price,
-        customerId: customerData._id,
-        astrologerId: astrolger._id,
-        slotId: slotId,
-        consultationType: selectedMode === 'video' ? 'videocall' : selectedMode === 'voice' ? 'call' : 'chat',
-        fullName: customerData?.customerName,
-        mobileNumber: customerData?.phoneNumber,
-        email: customerData?.email,
-        dateOfBirth: customerData?.dateOfBirth,
-        timeOfBirth: customerData?.timeOfBirth,
-        placeOfBirth: customerData?.placeOfBirth,
-        gender: customerData?.gender,
-        latitude: customerData?.address?.latitude,
-        longitude: customerData?.address?.longitude,
-        duration: selectedDuration?.duration?.slotDuration,
-        startTime: selectedDate,
-        paymentMethod: "razorpay",
-        status: "new",
-        source: "mobile"
-      })
-      const response = await axios.post(
-        `${api}/customers/book_consultation_order`,
+
+      await axios.post(
+        `${api}/customers/reschedule-booking`,
         {
-          amount: selectedDuration.price,
-          customerId: customerData._id,
-          astrologerId: astrolger._id,
-          slotId: slotId,
-          consultationType: selectedMode === 'video' ? 'videocall' : selectedMode === 'voice' ? 'call' : 'chat',
-          fullName: customerData?.customerName,
-          mobileNumber: customerData?.phoneNumber,
-          email: customerData?.email,
-          dateOfBirth: customerData?.dateOfBirth,
-          timeOfBirth: customerData?.timeOfBirth,
-          placeOfBirth: customerData?.placeOfBirth,
-          gender: customerData?.gender,
-          latitude: customerData?.address?.latitude,
-          longitude: customerData?.address?.longitude,
-          duration: selectedDuration?.duration?.slotDuration,
-          startTime: selectedDate,
-          paymentMethod: "razorpay",
-          status: "new",
-          source: "mobile"
+          bookingId: booking._id,
+          newSlotId: slotId
         },
         { headers: { "Content-Type": "application/json" } }
       );
-      console.log({ response })
-      const {
-        data: order,
-        key_id,
-        consultationLogId,
-      } = response.data;
-
-      const options = {
-        description: "AstroBook Consultation",
-        currency: order.currency,
-        key: key_id,
-        amount: order.amount,
-        name: "Acharya Lav Bhushan",
-        order_id: order.id,
-        prefill: {
-          email: customerData.email,
-          contact: customerData.phoneNumber,
-          name: customerData.customerName,
-        },
-        theme: { color: "#db9a4a" },
-      };
-
-      RazorpayCheckout.open(options)
-        .then(async (paymentData) => {
-          await axios.post(
-            `${api}/customers/verify_payment_and_complete_booking`,
-            {
-              razorpay_order_id: paymentData.razorpay_order_id,
-              razorpay_payment_id: paymentData.razorpay_payment_id,
-              razorpay_signature: paymentData.razorpay_signature,
-              consultationLogId: consultationLogId,
-            }
-          );
-
-          Alert.alert(
-            "Payment Successful",
-            "Your consultation has been booked successfully!",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-          );
-        })
-        .catch((error) => {
-          Alert.alert(
-            "Payment Failed",
-            error?.description || "Payment was cancelled"
-          );
-        });
+      Alert.alert(
+        "Consultation Rescheduled Successfully!",
+        "Your consultation has been Rescheduled successfully!",
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
     } catch (err) {
       console.log("Booking Error:", err);
       Alert.alert("Error", "Unable to complete booking. Please try again.");
@@ -268,58 +256,6 @@ const onChangeDate = async (selectedStr) => {
     setSlotId(null);
 
     await fetchSlotDatesByDuration(item);
-  };
-
-
-  const isConfirmEnabled = selectedMode && selectedDuration && selectedDate && selectedTime;
-  const getMarkedDates = () => {
-    const marked = {};
-
-    // disable all future dates by default (optional range)
-    const today = new Date();
-    for (let i = 0; i < 60; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const key = d.toISOString().slice(0, 10);
-
-      marked[key] = {
-        disabled: true,
-        disableTouchEvent: true,
-        color: '#eee',
-      };
-    }
-
-    // enable only allowed dates
-    enabledDates.forEach((date) => {
-      marked[date] = {
-        disabled: false,
-        disableTouchEvent: false,
-        selected: selectedDate === date,
-
-        selectedColor: '#db9a4a',
-      };
-    });
-
-    return marked;
-  };
-  const TOP_ASTROLOGER_ID = '68b546bad26a07574a62453d';
-
-  const modes = [
-    { type: "voice", icon: "phone", label: "Voice Call" },
-    { type: "video", icon: "video", label: "Video Call" },
-    { type: "chat", icon: "chat", label: "Chat" },
-  ].filter(item => {
-    // ❌ Hide chat for top astrologer
-    if (astrolger?._id === TOP_ASTROLOGER_ID && item.type === "chat") {
-      return false;
-    }
-    return true;
-  });
-  const formatDate = (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
   };
 
   return (
@@ -351,41 +287,41 @@ const onChangeDate = async (selectedStr) => {
             </View>
 
             <View style={styles.modeRow}>
-              {modes.map((item, index) => (
+              {[
+                { type: "voice", icon: "phone", label: "Voice Call" },
+                { type: "videocall", icon: "video", label: "Video Call" },
+                { type: "chat", icon: "chat", label: "Chat" },
+              ].map((item, index) => (
                 <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.modeCard,
-                    selectedMode === item.type && styles.selectedModeCard,
-                  ]}
-                  onPress={() => setSelectedMode(item.type)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.modeIconContainer,
-                      selectedMode === item.type && styles.selectedIconContainer,
-                    ]}
-                  >
+  key={index}
+  style={[
+    styles.modeCard,
+    selectedMode === item.type && styles.selectedModeCard,
+    styles.disabledCard
+  ]}
+  disabled={true}
+  activeOpacity={1}
+>
+
+                  <View style={[
+                    styles.modeIconContainer,
+                    selectedMode === item.type && styles.selectedIconContainer
+                  ]}>
                     <Icon
                       name={item.icon}
                       size={24}
                       color={selectedMode === item.type ? "#fff" : "#db9a4a"}
                     />
                   </View>
-
-                  <Text
-                    style={[
-                      styles.modeText,
-                      selectedMode === item.type && styles.selectedModeText,
-                    ]}
-                  >
+                  <Text style={[
+                    styles.modeText,
+                    selectedMode === item.type && styles.selectedModeText
+                  ]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-
           </View>
 
           {/* Duration */}
@@ -398,14 +334,16 @@ const onChangeDate = async (selectedStr) => {
             <View style={styles.durationRow}>
               {consultationPrices.map((item, index) => (
                 <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.durationCard,
-                    selectedDuration?._id === item._id && styles.selectedDurationCard,
-                  ]}
-                  onPress={() => onSelectDuration(item)}
-                  activeOpacity={0.7}
-                >
+  key={index}
+  style={[
+    styles.durationCard,
+    selectedDuration?._id === item._id && styles.selectedDurationCard,
+    styles.disabledCard
+  ]}
+  disabled={true}
+  activeOpacity={1}
+>
+
                   <View style={styles.durationContent}>
                     <Text style={[
                       styles.durationText,
@@ -461,8 +399,7 @@ const onChangeDate = async (selectedStr) => {
                   styles.dateValue,
                   !selectedDate && styles.datePlaceholder
                 ]}>
-                  {selectedDate ? formatDisplayDate(selectedDate) : "Tap to select"}
-
+                  {selectedDate ? selectedDate.toDateString() : "Tap to select"}
                 </Text>
               </View>
               <Icon name="chevron-right" size={20} color="#999" />
@@ -489,19 +426,21 @@ const onChangeDate = async (selectedStr) => {
                   </View>
 
                   <Calendar
-  current={selectedDate}   // 👈 important
-  minDate={enabledDates[0]}
-  maxDate={enabledDates[enabledDates.length - 1]}
-  markedDates={getMarkedDates()}
-  onDayPress={(day) => {
-    setShowDatePicker(false);
-    onChangeDate(day.dateString);
-  }}
-  disableAllTouchEventsForDisabledDays
-/>
-
-
-
+                    minDate={new Date().toISOString().slice(0, 10)}
+                    markedDates={getMarkedDates()}
+                    onDayPress={(day) => {
+                      const selected = new Date(day.dateString);
+                      setShowDatePicker(false);
+                      onChangeDate(null, selected);
+                    }}
+                    theme={{
+                      todayTextColor: '#db9a4a',
+                      arrowColor: '#db9a4a',
+                      selectedDayBackgroundColor: '#db9a4a',
+                      selectedDayTextColor: '#fff',
+                      disabledDayTextColor: '#ccc',
+                    }}
+                  />
                 </View>
               </TouchableOpacity>
             </Modal>
@@ -582,10 +521,7 @@ const onChangeDate = async (selectedStr) => {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Date:</Text>
-                <Text style={styles.summaryValue}>
-  {selectedDate ? formatDisplayDate(selectedDate) : ""}
-</Text>
-
+                <Text style={styles.summaryValue}>{selectedDate?.toDateString()}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Time:</Text>
@@ -620,7 +556,7 @@ const onChangeDate = async (selectedStr) => {
   );
 };
 
-export default SelectSlotScreen;
+export default SelectSlotScreenReschedule;
 
 /* ---------------------------------- STYLES ---------------------------------- */
 

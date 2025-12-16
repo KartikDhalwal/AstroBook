@@ -34,7 +34,9 @@ const UserConsultationList = () => {
                 `${api}/mobile/user-consultations/${customerData?._id}`,
                 { headers: { 'Content-Type': 'application/json' } }
             );
+
             if (response?.data?.success) {
+                console.log(response?.data?.bookings, 'response?.data?.bookings ')
                 setConsultations(response?.data?.bookings || []);
             } else {
                 Alert.alert('No Consultations', 'No records found.');
@@ -51,31 +53,117 @@ const UserConsultationList = () => {
         getConsultations();
     }, []);
 
+    // ------------------------------
     // SEARCH FILTER
+    // ------------------------------
     const searchFiltered = consultations.filter((item) =>
         item?.astrologer?.name
             ?.toLowerCase()
-            ?.includes(searchQuery.toLowerCase()) ||
-        item?._id?.toLowerCase().includes(searchQuery.toLowerCase())
+            ?.includes(searchQuery.toLowerCase())
     );
 
-    // TABS
-    const upcoming = searchFiltered.filter((item) => item?.status === 'new');
-    const completed = searchFiltered.filter((item) => item?.status === 'completed');
 
-    const currentList = activeTab === 'upcoming' ? upcoming : completed;
-    const fetchAstrologerDetails = async (id, mode,price) => {
+    // ------------------------------
+    // DATE & TIME BASED FILTERING
+    // ------------------------------
+    const now = new Date();
+
+    // Extract today's date strip time
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const parseTimeToDate = (date, fromTime, toTime) => {
+        const dateObj = new Date(date);
+
+        const [sh, sm] = fromTime.split(":").map(Number);
+        const [eh, em] = toTime.split(":").map(Number);
+
+        const startDate = new Date(dateObj);
+        startDate.setHours(sh, sm, 0, 0);
+
+        const endDate = new Date(dateObj);
+        endDate.setHours(eh, em, 0, 0);
+
+        return { startDate, endDate };
+    };
+
+
+    // UPCOMING (Today's & time not passed)
+    const upcoming = searchFiltered.filter((item) => {
+        if (item?.status !== "booked") return false;
+
+        const itemDate = new Date(item.date);
+        itemDate.setHours(0, 0, 0, 0);
+
+        const todayOnly = new Date();
+        todayOnly.setHours(0, 0, 0, 0);
+
+        const { endDate } = parseTimeToDate(
+            item.date,
+            item.fromTime,
+            item.toTime
+        );
+
+        if (itemDate > todayOnly) return true;
+
+        if (itemDate.getTime() === todayOnly.getTime()) {
+            return now <= endDate;
+        }
+
+        return false;
+    });
+
+
+
+    // PENDING (Date passed OR today's time passed)
+    const pending = searchFiltered.filter((item) => {
+        if (item?.status !== "booked") return false;
+
+        const { endDate } = parseTimeToDate(
+            item.date,
+            item.fromTime,
+            item.toTime
+        );
+
+        return now > endDate;
+    });
+
+
+    console.log({ searchFiltered })
+    // COMPLETED
+    const completed = searchFiltered.filter(
+        (item) => item?.status === "completed" || item?.status === "user_not_joined"
+    );
+
+
+    let currentList = [];
+    if (activeTab === 'upcoming') currentList = upcoming;
+    else if (activeTab === 'pending') currentList = pending;
+    else currentList = completed;
+
+    // ------------------------------
+    // FETCH ASTROLOGER DETAILS
+    // ------------------------------
+    const fetchAstrologerDetails = async (id, mode, price, time, formattedDate) => {
         setIsLoading(true);
+        const rawCustomerData = await AsyncStorage.getItem('customerData');
+        const customerData = JSON.parse(rawCustomerData);
+
         try {
             const response = await axios.post(
                 `${api}/astrologer/get-astrologer-details`,
                 { astrologerId: id },
                 { headers: { 'Content-Type': 'application/json' } }
             );
+
             if (response?.data?.success) {
                 navigation.navigate('Consultation Details', {
                     astrologer: response.data.astrologer,
-                    mode,price
+                    mode,
+                    price,
+                    customerData,
+                    time,
+                    formattedDate
                 });
             } else {
                 Alert.alert('No Data', 'Astrologer details not found.');
@@ -87,18 +175,19 @@ const UserConsultationList = () => {
             setIsLoading(false);
         }
     };
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
             <MyLoader isVisible={isLoading} />
 
-            {/* Header */}
+            {/* Header Search */}
             <View style={styles.header}>
                 <View style={styles.searchBar}>
                     <Icon name="magnify" size={20} color="#999" style={{ marginRight: 8 }} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search by Booking ID or Astrologer..."
+                        placeholder="Search by Astrologer Name..."
                         placeholderTextColor="#999"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -108,28 +197,31 @@ const UserConsultationList = () => {
 
             {/* Tabs */}
             <View style={styles.tabsContainer}>
-                {['upcoming', 'completed'].map((tab) => (
+                {[
+                    { key: 'upcoming', label: 'Upcoming' },
+                    { key: 'pending', label: 'Failed' },
+                    { key: 'completed', label: 'Completed' },
+                ].map((tab) => (
                     <TouchableOpacity
-                        key={tab}
-                        onPress={() => setActiveTab(tab)}
+                        key={tab.key}
+                        onPress={() => setActiveTab(tab.key)}
                         style={[
                             styles.tabButton,
-                            activeTab === tab && styles.activeTabButton,
+                            activeTab === tab.key && styles.activeTabButton,
                         ]}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                activeTab === tab && styles.activeTabText,
+                                activeTab === tab.key && styles.activeTabText,
                             ]}
                         >
-                            {tab === 'upcoming' ? 'Upcoming' : 'Completed'}
+                            {tab.label}
                         </Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
-            {/* List */}
             <ScrollView style={styles.scrollContent}>
                 {currentList.length === 0 ? (
                     <Text style={styles.noDataText}>No consultations found.</Text>
@@ -138,26 +230,34 @@ const UserConsultationList = () => {
                         const astrologerName = item?.astrologer?.name || 'Astrologer';
                         const experience = item?.astrologer?.experience || 'N/A';
                         const rating = item?.astrologer?.rating || 0;
-                        const price = item?.duration?.price || 'N/A';
 
+                        const price = item?.consultationPrice;
                         const mode =
-                            item?.mode === 'video'
+                            item?.consultationType === 'videocall'
                                 ? 'Video Call'
-                                : item?.mode === 'voice'
+                                : item?.consultationType === 'call'
                                     ? 'Voice Call'
-                                    : item?.mode === 'chat'
-                                        ? 'Live Chat'
-                                        : 'Unknown';
+                                    : 'Chat';
+
+                        const timeObj = `${item?.fromTime} - ${item?.toTime}`;
 
                         const dateObj = new Date(item?.date);
-                        const formattedDate = dateObj.toLocaleDateString();
+                        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                        const day = String(dateObj.getDate()).padStart(2, "0");
+                        const month = months[dateObj.getMonth()];
+                        const year = dateObj.getFullYear();
+
+                        const formattedDate = dateObj?.toDateString();
+
 
                         return (
                             <View key={index} style={styles.card}>
                                 <View style={styles.cardContent}>
-                                    <Text style={styles.bookingId}>
+                                    {/* <Text style={styles.bookingId}>
                                         Booking ID: {item?._id}
-                                    </Text>
+                                    </Text> */}
 
                                     <Text style={styles.astrologerName}>
                                         {astrologerName}
@@ -166,78 +266,92 @@ const UserConsultationList = () => {
                                     <View style={styles.modeBadge}>
                                         <Icon
                                             name={
-                                                item?.mode === 'video'
+                                                item?.consultationType === 'videocall'
                                                     ? 'video-outline'
-                                                    : item?.mode === 'voice'
+                                                    : item?.consultationType === 'call'
                                                         ? 'phone'
                                                         : 'chat-outline'
                                             }
                                             size={16}
                                             color="#db9a4a"
                                         />
+
                                         <Text style={styles.modeText}>{mode}</Text>
                                     </View>
 
                                     <Text style={styles.details}>
                                         Experience: {experience} yrs
                                     </Text>
-                                    <Text style={styles.details}>Rating: ⭐ {rating}</Text>
+                                    <Text style={styles.details}>
+                                        Rating: ⭐ {rating}
+                                    </Text>
                                     <Text style={styles.details}>
                                         Date: {formattedDate}
                                     </Text>
+                                    <Text style={styles.details}>
+                                        Time: {timeObj}
+                                    </Text>
+
                                     <Text style={styles.price}>₹ {price}</Text>
 
-                                    {/* VIEW DETAILS */}
-                                    <TouchableOpacity
-                                        style={styles.detailsButton}
-                                        onPress={() => fetchAstrologerDetails(item?.astrologerId, item?.mode,item?.duration?.price)}
+                                    <View style={styles.buttonsRow}>
+                                        <TouchableOpacity
+                                            style={styles.detailsButton}
+                                            onPress={() =>
+                                                fetchAstrologerDetails(
+                                                    item?.astrologerId,
+                                                    item?.consultationType,
+                                                    item?.consultationPrice,
+                                                    timeObj,
+                                                    formattedDate
+                                                )
+                                            }
 
-                                    >
-                                        <Text style={styles.detailsButtonText}>
-                                            View Details
-                                        </Text>
-                                        <Icon name="arrow-right" size={20} color="#fff" />
-                                    </TouchableOpacity>
-
-                                    {/* JOIN CALL BUTTON */}
-                                    {/* {item?.status === 'new' &&
-                                        (item?.mode === 'voice' ||
-                                            item?.mode === 'video') && (
-                                            <TouchableOpacity
-                                                style={styles.joinButton}
-                                                onPress={() =>
-                                                    navigation.navigate(
-                                                        'UserIncomingCallScreen',
-                                                        {
-                                                            booking: item,
-                                                            astrologerData:
-                                                                item?.astrologer,
-                                                            isVideo:
-                                                                item?.mode === 'video',
-                                                            channelName:
-                                                                item?.channelName,
-                                                        }
-                                                    )
-                                                }
+                                        >
+                                            <Text style={styles.detailsButtonText}>View Details</Text>
+                                            <Icon name="arrow-right" size={18} color="#fff" />
+                                        </TouchableOpacity>
+                                        {(activeTab === "completed") && (
+                                            <View
+                                                style={[
+                                                    styles.statusBadge,
+                                                    {
+                                                        backgroundColor: item.status === "completed" ? "#16A34A" : "#DC2626",
+                                                    },
+                                                ]}
                                             >
                                                 <Icon
-                                                    name={
-                                                        item.mode === 'video'
-                                                            ? 'video-outline'
-                                                            : 'phone'
-                                                    }
-                                                    size={22}
+                                                    name={item.status === "completed" ? "check-circle-outline" : "close-circle-outline"}
+                                                    size={18}
                                                     color="#fff"
-                                                    style={{ marginRight: 6 }}
                                                 />
-                                                <Text style={styles.joinButtonText}>
-                                                    Join {item.mode === 'video'
-                                                        ? 'Video'
-                                                        : 'Voice'}{' '}
-                                                    Call
+                                                <Text style={styles.statusBadgeText}>
+                                                    {item.status === "completed" ? "Completed" : "Didn't Join"}
                                                 </Text>
+                                            </View>
+                                        )}
+
+                                        {/* View Details Button */}
+
+
+                                        {/* Reschedule Button (Only for pending) */}
+                                        {activeTab === "pending" && (
+                                            <TouchableOpacity
+                                                style={[styles.detailsButton, styles.rescheduleButton]}
+                                                onPress={() => navigation.navigate('SelectSlotScreenReschedule', {
+                                                    astrolgerId: item.astrologer?._id,
+                                                    id:item?._id,
+                                                    mode,
+                                                    booking:item
+                                                })}
+                                            >
+                                                <Text style={styles.detailsButtonText}>Reschedule</Text>
+                                                <Icon name="calendar-edit" size={18} color="#fff" />
                                             </TouchableOpacity>
-                                        )} */}
+                                        )}
+                                    </View>
+
+
                                 </View>
                             </View>
                         );
@@ -259,7 +373,47 @@ const styles = StyleSheet.create({
         backgroundColor: '#F8F4EF',
     },
 
-    /* Tabs */
+    buttonsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 12,
+    },
+
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
+    },
+
+    statusBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+
+    detailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#db9a4a',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
+    },
+
+    rescheduleButton: {
+        backgroundColor: '#b85c38',
+    },
+
+    detailsButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
     tabsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
@@ -309,7 +463,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
 
-    /* List */
+    /* Cards */
     scrollContent: {
         paddingHorizontal: 12,
         paddingTop: 12,
@@ -364,38 +518,22 @@ const styles = StyleSheet.create({
     },
 
     /* Buttons */
-    detailsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 12,
-        backgroundColor: '#db9a4a',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        alignSelf: 'flex-start',
-    },
-    detailsButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginRight: 6,
-    },
-
-    joinButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 10,
-        backgroundColor: '#28A745',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        alignSelf: 'flex-start',
-    },
-    joinButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
+    // detailsButton: {
+    //     flexDirection: 'row',
+    //     alignItems: 'center',
+    //     marginTop: 12,
+    //     backgroundColor: '#db9a4a',
+    //     paddingVertical: 8,
+    //     paddingHorizontal: 15,
+    //     borderRadius: 8,
+    //     alignSelf: 'flex-start',
+    // },
+    // detailsButtonText: {
+    //     color: '#fff',
+    //     fontSize: 14,
+    //     fontWeight: '600',
+    //     marginRight: 6,
+    // },
 
     noDataText: {
         textAlign: 'center',

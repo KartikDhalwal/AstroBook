@@ -13,7 +13,9 @@ import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ZodiacImageWithName } from "../utils/static-data";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+/* -------------------- RESPONSIVE HELPERS -------------------- */
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
 
 const HoroscopeScreen = () => {
   const navigation = useNavigation();
@@ -24,13 +26,17 @@ const HoroscopeScreen = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F8F4EF" }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scale(30) }}
+      >
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
           <View style={styles.heroOverlay}>
-            <Text style={styles.heroTitle}>Discover Your Daily Horoscope</Text>
+            <Text style={styles.heroTitle}>
+              Discover Your Daily Horoscope
+            </Text>
             <Text style={styles.heroSubtitle}>
               Let the cosmos guide your journey today
             </Text>
@@ -44,7 +50,7 @@ const HoroscopeScreen = () => {
           <View style={styles.sectionLine} />
         </View>
 
-        {/* MULTI-ROW GRID */}
+        {/* GRID */}
         <View style={styles.gridContainer}>
           {ZodiacImageWithName?.map((item, index) => (
             <TouchableOpacity
@@ -56,7 +62,7 @@ const HoroscopeScreen = () => {
                   zodiacImage: item.image,
                 })
               }
-              activeOpacity={0.9}
+              activeOpacity={0.85}
             >
               <View style={styles.zodiacBackground}>
                 <Image
@@ -67,7 +73,6 @@ const HoroscopeScreen = () => {
               </View>
 
               <Text style={styles.zodiacName}>{item.title}</Text>
-              {/* <Icon name="chevron-right" size={18} color="#db9a4a" /> */}
             </TouchableOpacity>
           ))}
         </View>
@@ -81,7 +86,7 @@ const HoroscopeScreen = () => {
 
           <View style={styles.promoLeft}>
             <View style={styles.promoIconContainer}>
-              <Icon name="crystal-ball" size={28} color="#fff" />
+              <Icon name="crystal-ball" size={scale(26)} color="#fff" />
             </View>
 
             <View style={styles.promoTextContainer}>
@@ -95,31 +100,42 @@ const HoroscopeScreen = () => {
           </View>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate("AstrolgersList", { mode: "video" })}
+            onPress={() =>
+              navigation.navigate("AstrolgersList", { mode: "video" })
+            }
             style={styles.promoButtonLarge}
+            activeOpacity={0.85}
           >
-            <Text style={styles.promoButtonTextLarge}>Consult Now</Text>
-            <Icon name="arrow-right" size={18} color="#7F1D1D" />
+            <Text style={styles.promoButtonTextLarge}>
+              Consult Now
+            </Text>
+            <Icon
+              name="arrow-right"
+              size={scale(18)}
+              color="#7F1D1D"
+            />
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: 30 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
 export default HoroscopeScreen;
 
-
 /* ------------------------ STYLES ------------------------ */
-
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#F8F4EF",
+  },
+
+  /* Hero */
   heroBanner: {
-    marginHorizontal: 16,
-    marginTop: 20,
-    height: 160,
-    borderRadius: 20,
+    marginHorizontal: scale(16),
+    marginTop: scale(20),
+    height: scale(160),
+    borderRadius: scale(20),
     backgroundColor: "#7F1D1D",
     overflow: "hidden",
   },
@@ -128,29 +144,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 30,
+    paddingHorizontal: scale(24),
   },
 
   heroTitle: {
-    fontSize: 24,
+    fontSize: scale(22),
     fontWeight: "800",
     color: "#fff",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
 
   heroSubtitle: {
-    fontSize: 15,
+    fontSize: scale(14),
     color: "#FFF5E6",
     textAlign: "center",
   },
 
+  /* Section Header */
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginTop: 32,
-    marginBottom: 24,
+    paddingHorizontal: scale(16),
+    marginTop: scale(32),
+    marginBottom: scale(24),
   },
 
   sectionLine: {
@@ -160,108 +177,103 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 16,
+    fontSize: scale(15),
     fontWeight: "600",
     color: "#2C1810",
-    marginHorizontal: 12,
+    marginHorizontal: scale(12),
   },
 
-  /* === GRID SYSTEM === */
+  /* Grid */
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(16),
   },
 
   zodiacCard: {
-    width: "48%",        // 👈 2 cards per row
+    width: "48%", // ✅ always 2 per row
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFF",
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    marginBottom: 14,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(12),
+    borderRadius: scale(16),
+    marginBottom: scale(14),
     borderWidth: 1,
     borderColor: "#E8DCC8",
   },
 
   zodiacBackground: {
-    width: 55,
-    height: 55,
-    borderRadius: 30,
+    width: scale(52),
+    height: scale(52),
+    borderRadius: scale(26),
     backgroundColor: "#FFF5E6",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: scale(10),
   },
 
   zodiacIcon: {
-    width: 40,
-    height: 40,
+    width: scale(38),
+    height: scale(38),
   },
 
   zodiacName: {
     flex: 1,
-    fontSize: 12,
+    fontSize: scale(12),
     fontWeight: "600",
     color: "#2C1810",
   },
 
-  /* Promo Section */
+  /* Promo */
   promoBanner: {
-    marginHorizontal: 16,
-    marginTop: 32,
+    marginHorizontal: scale(16),
+    marginTop: scale(32),
     backgroundColor: "#7F1D1D",
-    borderRadius: 20,
-    padding: 20,
-    position: "relative",
+    borderRadius: scale(20),
+    padding: scale(20),
     overflow: "hidden",
   },
 
   promoPattern: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
   },
 
   promoCircle1: {
     position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    top: -40,
-    right: -20,
+    width: scale(120),
+    height: scale(120),
+    borderRadius: scale(60),
+    backgroundColor: "rgba(255,255,255,0.05)",
+    top: -scale(40),
+    right: -scale(20),
   },
 
   promoCircle2: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    bottom: -20,
-    left: 20,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: scale(40),
+    backgroundColor: "rgba(255,255,255,0.05)",
+    bottom: -scale(20),
+    left: scale(20),
   },
 
   promoLeft: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
 
   promoIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    width: scale(54),
+    height: scale(54),
+    borderRadius: scale(27),
+    backgroundColor: "rgba(0,0,0,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
+    marginRight: scale(16),
   },
 
   promoTextContainer: {
@@ -269,31 +281,31 @@ const styles = StyleSheet.create({
   },
 
   promoTitle: {
-    fontSize: 18,
+    fontSize: scale(17),
     fontWeight: "700",
     color: "#fff",
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
 
   promoDescription: {
-    fontSize: 13,
+    fontSize: scale(13),
     color: "#FFF5E6",
   },
 
   promoButtonLarge: {
     backgroundColor: "#fff",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 25,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(24),
+    borderRadius: scale(25),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
 
   promoButtonTextLarge: {
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: "700",
     color: "#7F1D1D",
-    marginRight: 8,
+    marginRight: scale(8),
   },
 });

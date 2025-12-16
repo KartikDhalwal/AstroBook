@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import api from '../apiConfig';
+import IMAGE_BASE_URL from '../imageConfig';
 import MyLoader from '../components/MyLoader';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const AstrolgersList = ({ route, mode: propMode }) => {
   const { mode: routeMode } = route?.params || {};
   const mode = routeMode || propMode;
-
+  console.log(mode,'modemodemodemodemodemode')
   const [isLoading, setIsLoading] = useState(false);
   const [astrologers, setAstrologers] = useState([]);
   const [astrologersDetails, setAstrologersDetails] = useState();
@@ -33,12 +34,25 @@ const AstrolgersList = ({ route, mode: propMode }) => {
 
   const navigation = useNavigation();
 
-  const BASE_URL = 'https://api.acharyalavbhushan.com/';
-  const topAstrologerId = '68b546bad26a07574a62453d'; 
+  const topAstrologerId = '68b546bad26a07574a62453d';
+const isSearchApplied = searchQuery.trim().length > 0;
+const isFilterApplied = !!selectedExpertise;
+const shouldShowTopAstrologer =
+  (mode === 'voice' || mode === 'video') &&
+  !isSearchApplied &&
+  !isFilterApplied;
 
-  const getImageUrl = (path) =>
-    path?.startsWith('http') ? path : `${BASE_URL}${path}`;
+const getImageUrl = (path) => {
+  if (!path) return null;
 
+  // If already a full URL
+  if (path.startsWith('http')) {
+    return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+  }
+
+  // Relative path from backend
+  return `${IMAGE_BASE_URL}${path}?format=jpg`;
+};
   // Fetch astrologers
   const getAstrologerData = async () => {
     setIsLoading(true);
@@ -46,7 +60,7 @@ const AstrolgersList = ({ route, mode: propMode }) => {
       const response = await axios.get(`${api}/astrologer/get-all-astrologers`, {
         headers: { 'Content-Type': 'application/json' },
       });
-      console.log(response?.data,'response?.data')
+      console.log(response?.data, 'response?.data')
       if (response?.data?.success) {
         setAstrologers(response?.data?.astrologer || []);
       } else {
@@ -77,10 +91,11 @@ const AstrolgersList = ({ route, mode: propMode }) => {
     getExpertiseList();
   }, []);
 
-  // ⭐ Filter logic with top astrologer always first
-  let filteredAstrologers = astrologers.filter((astro) =>
-    astro.astrologerName?.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+ let filteredAstrologers = astrologers.filter((astro) =>
+  astro.astrologerName
+    ?.toLowerCase()
+    .includes(searchQuery.trim().toLowerCase())
+);
 
 if (selectedExpertise) {
   filteredAstrologers = filteredAstrologers.filter(
@@ -92,20 +107,28 @@ if (selectedExpertise) {
 
 
 
-  // ⭐ Keep top astrologer always on top (even if filtered out)
-  const topAstrologer = astrologers.find((astro) => astro._id === topAstrologerId);
-  if (topAstrologer) {
-    const alreadyIncluded = filteredAstrologers.some(
-      (astro) => astro._id === topAstrologerId
-    );
-    if (!alreadyIncluded) filteredAstrologers.unshift(topAstrologer);
+const topAstrologer = astrologers.find(
+  (astro) => astro._id === topAstrologerId
+);
 
-    filteredAstrologers.sort((a, b) => {
-      if (a._id === topAstrologerId) return -1;
-      if (b._id === topAstrologerId) return 1;
-      return 0;
-    });
+  if (mode === "chat") {
+    filteredAstrologers = filteredAstrologers.filter(
+  (astro) => astro._id !== topAstrologerId
+);
+
   }
+
+const finalAstrologers =
+  shouldShowTopAstrologer && topAstrologer
+    ? [topAstrologer, ...filteredAstrologers]
+    : filteredAstrologers;
+const finalList =
+  mode === 'chat'
+    ? finalAstrologers.filter(
+        (astro) => astro._id !== topAstrologerId
+      )
+    : finalAstrologers;
+
 
   const fetchAstrologerDetails = async (id) => {
     setIsLoading(true);
@@ -165,14 +188,14 @@ if (selectedExpertise) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.astrologersList}>
-          {filteredAstrologers.length === 0 ? (
+          {finalList.length === 0 ? (
             <View style={styles.emptyState}>
               <Icon name="crystal-ball" size={60} color="#db9a4a" style={{ marginBottom: 16 }} />
               <Text style={styles.emptyText}>No astrologers available</Text>
               <Text style={styles.emptySubtext}>Please check back later</Text>
             </View>
           ) : (
-            filteredAstrologers.map((astro, index) => (
+            finalList.map((astro, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.astrologerCard}
@@ -228,9 +251,7 @@ if (selectedExpertise) {
                   {mode === 'chat' && (
                     <TouchableOpacity
                       style={styles.actionButton}
-                      onPress={() =>
-                        navigation.navigate('ChatScreen', { astrologerData: astro })
-                      }
+                      onPress={() => fetchAstrologerDetails(astro?._id)}
                     >
                       <Icon name="chat" size={22} color="#FFF" />
                     </TouchableOpacity>
@@ -323,7 +344,7 @@ const styles = StyleSheet.create({
   },
   filterButton: { marginLeft: 10 },
   searchInput: { flex: 1, color: '#333', fontSize: 15, paddingVertical: 0 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 12 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
   astrologersList: { gap: 12 },
   astrologerCard: {
     flexDirection: 'row',
@@ -350,18 +371,22 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 18, fontWeight: '600', color: '#2C1810', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#666' },
-  drawerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  drawerContainer: {
-    backgroundColor: '#fff',
-    height: '60%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-  },
+drawerOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.4)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+drawerContainer: {
+  backgroundColor: '#fff',
+  height: '100%',     // full height
+  width: '100%',      // full width
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+  padding: 20,
+},
+
   drawerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
+import PlaceInput from "../components/PlaceInput";
 
 const ADD_KUNDLI_API = "https://api.acharyalavbhushan.com/api/kundli/add_kundli";
 const GET_KUNDLI_API = "https://api.acharyalavbhushan.com/api/kundli/get_customer_kundli";
@@ -30,8 +31,8 @@ const KundliScreen = () => {
   const [minute, setMinute] = useState("");
   const [amPm, setAmPm] = useState("AM");
   const [place, setPlace] = useState("");
-  const [lat, setLat] = useState("26.4498954");
-  const [lon, setLon] = useState("74.6399163");
+  const [lat, setLat] = useState("");
+  const [lon, setLon] = useState("");
   const navigation = useNavigation();
   const [kundlis, setKundlis] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -166,11 +167,7 @@ const KundliScreen = () => {
     const date = new Date(dateString);
     const time = new Date(timeString);
 
-    const dateStr = date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const dateStr = date.toDateString();
 
     const timeStr = time.toLocaleTimeString("en-IN", {
       hour: "2-digit",
@@ -385,16 +382,27 @@ const KundliScreen = () => {
             {/* Place */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Place of Birth *</Text>
-              <View style={styles.inputWrapper}>
-                <Icon name="map-marker" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+              {/* <View style={styles.inputWrapper}> */}
+                {/* <Icon name="map-marker" size={20} color="#999" style={styles.inputIcon} /> */}
+                <PlaceInput
+                  label="Place of Birth"
+                  onSelect={(location) => {
+                    console.log("PLACE SELECTED => ", location);
+                    setPlace(
+                      location.description
+                    );
+                    setLat(location.latitude);
+                    setLon(location.longitude);
+                  }}
+                />
+                {/* <TextInput
                   style={styles.textInput}
                   placeholder="Enter place of birth"
                   value={place}
                   onChangeText={setPlace}
-                />
+                /> */}
               </View>
-            </View>
+            {/* </View> */}
 
             {/* Submit */}
             <TouchableOpacity

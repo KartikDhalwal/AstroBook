@@ -5,15 +5,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-//   Vibration,
+  //   Vibration,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import InCallManager from "react-native-incall-manager";
+import { Image } from "react-native";
+import IMAGE_BASE_URL from "../imageConfig";
 
 export default function UserIncomingCallPopup({ navigation, route }) {
   const { booking, astrologerData, channelName } = route.params || {};
+  console.log(astrologerData, 'astrologerData')
+  const isVideo = booking?.consultationType === "videocall";
 
-  const isVideo = booking?.mode === "video";
   const pulseAnim = useRef(new Animated.Value(0.9)).current;
 
   /* 🔔 Start Ringtone + Vibration */
@@ -33,7 +36,7 @@ export default function UserIncomingCallPopup({ navigation, route }) {
       } catch (e) {
         console.log("InCallManager stopRingtone error =>", e);
       }
-    //   Vibration.cancel();
+      //   Vibration.cancel();
     };
   }, []);
 
@@ -59,7 +62,7 @@ export default function UserIncomingCallPopup({ navigation, route }) {
   const acceptCall = () => {
     try {
       InCallManager.stopRingtone();
-    } catch (e) {}
+    } catch (e) { }
     // Vibration.cancel();
 
     navigation.replace("UserIncomingCallScreen", {
@@ -69,12 +72,22 @@ export default function UserIncomingCallPopup({ navigation, route }) {
       channelName,
     });
   };
+  const getImageUrl = (path) => {
+    if (!path) return null;
 
+    // If already a full URL
+    if (path.startsWith('http')) {
+      return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+    }
+
+    // Relative path from backend
+    return `${IMAGE_BASE_URL}${path}?format=jpg`;
+  };
   /** ✖ Reject Call */
   const rejectCall = () => {
     try {
       InCallManager.stopRingtone();
-    } catch (e) {}
+    } catch (e) { }
     // Vibration.cancel();
     navigation.goBack();
   };
@@ -88,7 +101,10 @@ export default function UserIncomingCallPopup({ navigation, route }) {
         ]}
       >
         <View style={styles.avatarCircle}>
-          <Icon name="account" size={85} color="#fff" />
+          <Image
+            source={{ uri: getImageUrl(astrologerData.image) }}
+            style={styles.avatar}
+          />        
         </View>
       </Animated.View>
 
@@ -118,6 +134,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
   },
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+
   avatarWrapper: {
     marginBottom: 30,
   },
@@ -125,7 +147,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: "#C9A961",
+    // backgroundColor: "#C9A961",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 5,

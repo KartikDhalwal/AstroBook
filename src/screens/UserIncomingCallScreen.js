@@ -11,6 +11,7 @@ import {
     Animated,
     ActivityIndicator,
     Alert,
+    Image,
 } from "react-native";
 import axios from "axios";
 import {
@@ -24,6 +25,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Config from "../agoraconfig";
 import api from "../apiConfig";
+import IMAGE_BASE_URL from "../imageConfig";
 
 let agoraEngine = null;
 
@@ -36,11 +38,16 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [tokenInfo, setTokenInfo] = useState(null);
 
+    const [remainingTime, setRemainingTime] = useState(""); // ⬅ TIMER ADDED
+    const endCallTriggered = useRef(false); // prevents duplicate end calls
+
     const tokenRefreshInProgress = useRef(false);
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     const channelName = route?.params?.channelName;
+    const booking = route?.params?.booking;
 
+    /* ---------------- PERMISSIONS ---------------- */
     const requestPermissions = async () => {
         if (Platform.OS === "android") {
             await PermissionsAndroid.requestMultiple([
@@ -50,13 +57,14 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
         }
     };
 
+    /* ---------------- INITIAL JOIN ---------------- */
     useEffect(() => {
         requestPermissions();
         initAndJoin();
-
         return () => leaveChannel();
     }, []);
 
+    /* ---------------- VOICE UI PULSE ---------------- */
     useEffect(() => {
         if (!isVideoEnabled) {
             Animated.loop(
@@ -67,6 +75,41 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             ).start();
         }
     }, [isVideoEnabled]);
+
+    /* ----------------------------------------------------------
+     ⏳ CALL END TIMER — Based on booking.time = "02:45 - 02:55"
+    ----------------------------------------------------------- */
+    useEffect(() => {
+        if (!booking?.date || !booking?.fromTime || !booking?.toTime) return;
+
+        const bookingDate = new Date(booking.date);
+        const [endH, endM] = booking.toTime.split(":").map(Number);
+
+        const callEnd = new Date(bookingDate);
+        callEnd.setHours(endH, endM, 0, 0);
+
+        const timer = setInterval(() => {
+            const now = new Date();
+            const diff = callEnd - now;
+
+            if (diff <= 0) {
+                if (!endCallTriggered.current) {
+                    endCallTriggered.current = true;
+                    endCall(); // FORCE DISCONNECT
+                }
+                clearInterval(timer);
+                return;
+            }
+
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+
+            setRemainingTime(`${mins}:${secs < 10 ? "0" : ""}${secs}`);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [booking?.date, booking?.fromTime, booking?.toTime]);
+
 
     /* ---------------- INIT + JOIN ---------------- */
     const initAndJoin = async () => {
@@ -85,27 +128,23 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             agoraEngine.initialize({ appId: Config.appId });
 
             await agoraEngine.enableVideo();
-            await agoraEngine.startPreview();     // preview local cam
+            await agoraEngine.startPreview();
             await agoraEngine.enableAudio();
 
             agoraEngine.registerEventHandler({
                 onJoinChannelSuccess: (connection, uid) => {
-                    console.log("USER JOINED =>", uid);
                     setIsJoined(true);
                 },
 
                 onUserJoined: (connection, remoteUid) => {
-                    console.log("REMOTE JOINED =>", remoteUid);
                     setRemoteUid(remoteUid);
                 },
 
                 onUserOffline: (connection, remoteUid) => {
-                    console.log("REMOTE LEFT =>", remoteUid);
                     setRemoteUid(null);
                 },
 
                 onTokenPrivilegeWillExpire: async () => {
-                    console.log("Token expiring…");
                     await refreshToken();
                 },
             });
@@ -113,21 +152,20 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             await agoraEngine.joinChannel(
                 tokenRes.token,
                 tokenRes.channelName,
-                tokenRes.uid, // USER UID = 2
+                tokenRes.uid,
                 {
                     channelProfile: ChannelProfileType.ChannelProfileCommunication,
                     clientRoleType: ClientRoleType.ClientRoleBroadcaster,
                 }
             );
         } catch (e) {
-            console.log("Join error =>", e);
             Alert.alert("Error", e.message);
         } finally {
             setIsLoading(false);
         }
     };
 
-    /* ---------------- TOKEN API ---------------- */
+    /* ---------------- TOKEN ---------------- */
     const fetchToken = async (chan) => {
         const res = await axios.post(
             `${api}/mobile/agora/token`,
@@ -145,20 +183,23 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             const newToken = await fetchToken(tokenInfo.channelName);
             setTokenInfo(newToken);
             agoraEngine?.renewToken(newToken.token);
-        } catch (e) {
-            console.log("Token refresh error =>", e);
-        }
+        } catch (e) { }
 
         tokenRefreshInProgress.current = false;
     };
 
-    /* ---------------- LEAVE ---------------- */
+    /* ---------------- END CALL ---------------- */
+    const endCall = () => {
+        leaveChannel();
+        navigation.goBack();
+    };
+
     const leaveChannel = () => {
         try {
             agoraEngine?.leaveChannel();
             agoraEngine?.release();
             agoraEngine = null;
-        } catch (e) {}
+        } catch (e) { }
     };
 
     /* ---------------- CONTROLS ---------------- */
@@ -183,11 +224,6 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
         }
     };
 
-    const endCall = () => {
-        leaveChannel();
-        navigation.goBack();
-    };
-
     /* ---------------- LOADING ---------------- */
     if (isLoading) {
         return (
@@ -197,7 +233,17 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             </View>
         );
     }
+    const getImageUrl = (path) => {
+        if (!path) return null;
 
+        // If already a full URL
+        if (path.startsWith('http')) {
+            return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+        }
+
+        // Relative path from backend
+        return `${IMAGE_BASE_URL}${path}?format=jpg`;
+    };
     /* ---------------- UI ---------------- */
     return (
         <View style={styles.container}>
@@ -205,7 +251,6 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
                 <View style={{ flex: 1 }}>
                     {remoteUid ? (
                         <>
-                            {/* REMOTE VIDEO */}
                             <RtcSurfaceView
                                 style={styles.remoteVideo}
                                 canvas={{
@@ -214,12 +259,11 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
                                 }}
                             />
 
-                            {/* LOCAL VIDEO */}
                             <View style={styles.localVideoBox}>
                                 <RtcSurfaceView
                                     style={styles.localVideo}
                                     canvas={{
-                                        uid: 0,  // ALWAYS 0 FOR LOCAL
+                                        uid: 0,
                                         channelId: tokenInfo.channelName,
                                     }}
                                     setupMode={VideoViewSetupMode.VideoViewSetupReplace}
@@ -233,15 +277,17 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
                         </View>
                     )}
 
-                    {/* CONTROLS */}
+                    {/* ⏳ TIMER ADDED HERE */}
+                    <Text style={styles.timerText}>Ends In {remainingTime}</Text>
+
                     <View style={styles.controls}>
                         <TouchableOpacity onPress={toggleMute} style={styles.ctrlBtn}>
                             <Icon name={isMuted ? "microphone-off" : "microphone"} size={26} color="#fff" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={toggleVideo} style={styles.ctrlBtn}>
+                        {/* <TouchableOpacity onPress={toggleVideo} style={styles.ctrlBtn}>
                             <Icon name="video" size={26} color="#fff" />
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
 
                         <TouchableOpacity onPress={toggleSpeaker} style={styles.ctrlBtn}>
                             <Icon name={isSpeakerOn ? "volume-high" : "volume-medium"} size={26} color="#fff" />
@@ -255,19 +301,25 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
             ) : (
                 <SafeAreaView style={styles.voiceContainer}>
                     <Text style={styles.userName}>{route?.params?.astrologerData?.name}</Text>
+
+                    {/* TIMER IN VOICE UI */}
+                    <Text style={styles.timerText}>Ends in {remainingTime}</Text>
+
                     <Text style={styles.statusText}>{remoteUid ? "Connected" : "Waiting…"}</Text>
 
                     <Animated.View style={[styles.avatarBox, { transform: [{ scale: pulseAnim }] }]}>
-                        <Icon name="account" size={90} color="#fff" />
-                    </Animated.View>
+                        <Image
+                            source={{ uri: getImageUrl(route?.params?.astrologerData.image) }}
+                            style={styles.avatar}
+                        />                      </Animated.View>
 
                     <View style={styles.voiceControls}>
                         <TouchableOpacity onPress={toggleSpeaker} style={styles.roundBtn}>
                             <Icon name="volume-high" size={28} color="#fff" />
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={toggleVideo} style={styles.roundBtn}>
+                        {/* <TouchableOpacity onPress={toggleVideo} style={styles.roundBtn}>
                             <Icon name="video" size={28} color="#fff" />
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                         <TouchableOpacity onPress={toggleMute} style={styles.roundBtn}>
                             <Icon name={isMuted ? "microphone-off" : "microphone"} size={28} color="#fff" />
                         </TouchableOpacity>
@@ -310,6 +362,19 @@ const styles = StyleSheet.create({
 
     waitScreen: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
+    timerText: {
+        position: "absolute",
+        top: 40,
+        alignSelf: "center",
+        color: "#fff",
+        fontSize: 22,
+        fontWeight: "700",
+        backgroundColor: "rgba(0,0,0,0.4)",
+        paddingHorizontal: 14,
+        paddingVertical: 4,
+        borderRadius: 8
+    },
+
     controls: {
         position: 'absolute',
         bottom: 40,
@@ -339,7 +404,11 @@ const styles = StyleSheet.create({
     voiceContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1A1A1A' },
     userName: { color: '#fff', fontSize: 26, fontWeight: '700', marginBottom: 10 },
     statusText: { color: '#aaa', fontSize: 16 },
-
+    avatar: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+    },
     avatarBox: {
         width: 150,
         height: 150,

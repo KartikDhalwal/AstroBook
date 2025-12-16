@@ -10,13 +10,24 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import IMAGE_BASE_URL from "../imageConfig";
 
 const ConsultationDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const getImageUrl = (path) => {
+    if (!path) return null;
 
-  const { astrologer, mode,price } = route.params || {};
+    // If already a full URL
+    if (path.startsWith('http')) {
+      return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+    }
 
+    // Relative path from backend
+    return `${IMAGE_BASE_URL}${path}?format=jpg`;
+  };
+  const { astrologer, mode, price, customerData, time, formattedDate } = route.params || {};
+  console.log({ time })
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor="#F8F4EF" barStyle="dark-content" />
@@ -26,11 +37,13 @@ const ConsultationDetailsScreen = () => {
         {/* PROFILE CARD */}
         <View style={styles.profileCard}>
           <Image
-            source={{
-              uri: astrologer?.profileImage
-                ? `${astrologer.profileImage}`
-                : "https://via.placeholder.com/150",
-            }}
+            // source={{
+            //   uri: astrologer?.profileImage
+            //     ? `${astrologer.profileImage}`
+            //     : "https://via.placeholder.com/150",
+            // }}
+            source={{ uri: getImageUrl(astrologer?.profileImage) }}
+
             style={styles.profileImage}
           />
 
@@ -48,6 +61,7 @@ const ConsultationDetailsScreen = () => {
             <Text style={styles.experience}>
               {astrologer?.experience} Years Experience
             </Text>
+
 
             <View style={styles.langRow}>
               {astrologer?.language?.map((lng, idx) => (
@@ -67,63 +81,94 @@ const ConsultationDetailsScreen = () => {
           </Text>
         </View>
 
-        {/* MODE CARD */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Consultation Mode</Text>
 
-          <View style={styles.modeBox}>
-            <Icon
-              name={
-                mode === "video"
-                  ? "video-outline"
-                  : mode === "voice"
-                  ? "phone"
-                  : "chat-outline"
-              }
-              size={20}
-              color="#db9a4a"
-            />
-            <Text style={styles.modeText}>
-              {mode === "video"
-                ? "Video Call"
-                : mode === "voice"
-                ? "Voice Call"
-                : "Live Chat"}
-            </Text>
+        <View style={styles.rowContainer}>
+
+          {/* BOX 1 — Consultation Mode */}
+          <View style={[styles.card, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.cardTitle}>Consultation Mode</Text>
+
+            <View style={styles.modeBox}>
+              <Icon
+                name={
+                  mode === "videocall"
+                    ? "video-outline"
+                    : mode === "call"
+                      ? "phone"
+                      : "chat-outline"
+                }
+                size={20}
+                color="#db9a4a"
+              />
+              <Text style={styles.modeText}>
+                {mode === "videocall"
+                  ? " Video Call"
+                  : mode === "call"
+                    ? " Voice Call"
+                    : " Chat"}
+              </Text>
+            </View>
           </View>
+
+          {/* BOX 2 — Date & Time */}
+          <View style={[styles.datetimecard, { flex: 1 }]}>
+            {/* <View style={styles.modeBox}> */}
+            <View style={styles.dateTimeRow}>
+              <Text style={styles.cardTitle1}>{formattedDate}</Text>
+              <Text style={[styles.cardTitle1]}>
+                {time}
+              </Text>
+            </View>
+            {/* </View> */}
+          </View>
+
         </View>
 
-        {/* PRICE CARD */}
+
+
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Consultation Price</Text>
+          <Text style={styles.cardTitle1}>Consultation Price</Text>
 
           <Text style={styles.price}>
             ₹ {price}
           </Text>
         </View>
 
-        {/* JOIN BUTTON */}
-        {/* <TouchableOpacity style={styles.joinButton}>
-          <Icon
-            name={
-              mode === "video"
-                ? "video-outline"
-                : mode === "voice"
-                ? "phone"
-                : "chat-outline"
+        {mode === 'chat' ?
+          <TouchableOpacity style={styles.joinButton}
+            onPress={() =>
+              // navigation.navigate('ChatScreen', { astrologer, userData: customerData,time })
+              navigation.navigate("ChatScreen", {
+                astrologer: astrologer,
+                userData: customerData,
+                time,
+                date: formattedDate,
+              })
+
             }
-            size={22}
-            color="#fff"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.joinText}>
-            {mode === "chat"
-              ? "Start Chat"
-              : mode === "voice"
-              ? "Join Voice Call"
-              : "Join Video Call"}
-          </Text>
-        </TouchableOpacity> */}
+          >
+            <Icon
+              name={
+                mode === "videocall"
+                  ? "video-outline"
+                  : mode === "call"
+                    ? "phone"
+                    : "chat-outline"
+              }
+              size={22}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.joinText}>
+              {mode === "chat"
+                ? "Chat"
+                : mode === "call"
+                  ? "Join Voice Call"
+                  : "Join Video Call"}
+            </Text>
+          </TouchableOpacity>
+          : null}
+
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -141,6 +186,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F4EF",
+  },
+  rowContainer: {
+    flexDirection: "row",
+    width: "100%",
+  },
+
+  dateTimeRow: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginTop: 10
   },
 
   /* HEADER */
@@ -241,8 +296,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#EEE2D3",
   },
+  datetimecard: {
+    backgroundColor: "#FFF5E6",
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 14,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: "#EEE2D3",
+  },
   cardTitle: {
     fontSize: 15,
+    fontWeight: "700",
+    color: "#2C1810",
+    marginBottom: 6,
+  },
+  cardTitle1: {
+    alignItems: "center",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#2C1810",
+    // marginBottom: 6,
+  },
+  datetimeTitle: {
+    fontSize: 12,
     fontWeight: "700",
     color: "#2C1810",
     marginBottom: 6,
@@ -265,7 +343,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   modeText: {
-    marginLeft: 8,
+    // marginLeft: 8,
     color: "#db9a4a",
     fontWeight: "600",
     fontSize: 13,
