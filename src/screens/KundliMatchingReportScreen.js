@@ -240,7 +240,7 @@ const KundliMatchingReportScreen = () => {
         longitude: asthaKootaData.boyLongitude,
       }
     : null;
-
+      console.log({asthaKootaData})
   const girlInfo = asthaKootaData
     ? {
         name: asthaKootaData.girlName,

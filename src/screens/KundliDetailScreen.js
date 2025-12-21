@@ -14,6 +14,21 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import axios from "axios";
 import Svg, { Path, Text as SvgText, G } from "react-native-svg";
 import AstroTextRenderer from "../screens/auth/components/AstroTextRenderer"
+import { Dimensions } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const BASE_SIZE = 350;
+const CHART_PADDING = 24;
+
+// responsive size (never too big)
+const CHART_SIZE = Math.min(
+    SCREEN_WIDTH - CHART_PADDING * 2,
+    420 // max size for tablets
+);
+
+const SCALE = CHART_SIZE / BASE_SIZE;
+
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android") {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -1044,8 +1059,13 @@ const NorthIndianSvgChart = ({ data }) => {
     const orderedChart = reorderChartForNorthIndian(chart);
 
     return (
-        <View style={{ alignItems: "center", height: 360 }}>
-            <Svg width={350} height={350} viewBox="0 0 350 350">
+        <View style={{ alignItems: 'center' }}>
+            <Svg
+                width={CHART_SIZE}
+                height={CHART_SIZE}
+                viewBox="0 0 350 350"
+                preserveAspectRatio="xMidYMid meet"
+            >
                 {/* Chart lines */}
                 {NORTH_INDIAN_PATHS.map((d, i) => (
                     <Path
@@ -1062,45 +1082,56 @@ const NorthIndianSvgChart = ({ data }) => {
                     if (!signData) return null;
                     const pos = NORTH_INDIAN_TEXT_POSITIONS[index];
                     if (!pos) return null;
-
+                    const PLANETS_PER_ROW = 3;   // adjust if needed
+                    const PLANET_GAP_X = 14 * SCALE;
+                    const PLANET_GAP_Y = 12 * SCALE;
                     return (
                         <G key={index}>
+                            {/* Rashi number */}
                             <SvgText
                                 x={pos.x}
                                 y={pos.y}
                                 textAnchor="middle"
-                                fontSize={11}
+                                fontSize={11 * SCALE}
                                 fontWeight="bold"
                                 fill="#1F2937"
                             >
                                 {signData.rashiIndex}
                             </SvgText>
 
+                            {/* Rashi name */}
                             {signData.rashi && (
                                 <SvgText
                                     x={pos.x}
                                     y={pos.y + 12}
                                     textAnchor="middle"
-                                    fontSize={9}
+                                    fontSize={9 * SCALE}
                                     fill="#6B7280"
                                 >
                                     {signData.rashi}
                                 </SvgText>
                             )}
 
-                            {signData.planets?.map((planet, i) => (
-                                <SvgText
-                                    key={i}
-                                    x={pos.x + i * 15 - 22}
-                                    y={pos.y - 15}
-                                    textAnchor="middle"
-                                    fontSize={9}
-                                    fontWeight="600"
-                                    fill={planet.color || "#E15602"}
-                                >
-                                    {planet.name}
-                                </SvgText>
-                            ))}
+                            {/* Planets */}
+                            {signData.planets?.map((planet, i) => {
+                                const row = Math.floor(i / PLANETS_PER_ROW);
+                                const col = i % PLANETS_PER_ROW;
+
+                                return (
+                                    <SvgText
+                                        key={i}
+                                        x={pos.x + (col - 1) * PLANET_GAP_X}
+                                        y={pos.y - 18 * SCALE + row * PLANET_GAP_Y}
+                                        textAnchor="middle"
+                                        fontSize={9 * SCALE}
+                                        fontWeight="600"
+                                        fill={planet.color || '#E15602'}
+                                    >
+                                        {planet.name}
+                                    </SvgText>
+                                );
+                            })}
+
                         </G>
                     );
                 })}
@@ -1108,9 +1139,6 @@ const NorthIndianSvgChart = ({ data }) => {
         </View>
     );
 };
-
-
-
 
 
 const ChartSection = ({ title, data }) => {
@@ -1177,7 +1205,7 @@ const KundliDetailScreen = ({ route }) => {
     const [kp, setKP] = useState(null);
     const [numerology, setNumerology] = useState(null); // { core, gemini }
     const [prediction, setPrediction] = useState(null);
-
+    console.log(basic,'basic')
     const reqBodyRef = useRef(null);
     // ---------- Basic + general tab ----------
     const fetchBasicDetails = async () => {
@@ -1292,7 +1320,7 @@ const KundliDetailScreen = ({ route }) => {
                 data: {
                     Name: birthNormRaw.name,
                     Date: `${birthNormRaw.day}-${birthNormRaw.month}-${birthNormRaw.year}`,
-                    Time: `${birthNormRaw.hour}:${birthNormRaw.min}`,
+                    // Time: `${birthNormRaw.hour}:${birthNormRaw.min}`,
                     Place: birthNormRaw.place,
                     Gender: birthNormRaw.gender,
                     Sunrise: birthNormRaw.sunrise,
@@ -1876,21 +1904,29 @@ const KundliDetailScreen = ({ route }) => {
             </View>
         );
     }
-const formatDate = (basic) => {
-  if (!basic) return "...";
+    const formatDate = (basic) => {
+        if (!basic) return "...";
 
-  const date = new Date(
-    basic.year,
-    basic.month - 1, // JS months are 0-based
-    basic.day
-  );
+        const date = new Date(
+            basic.year,
+            basic.month - 1, // JS months are 0-based
+            basic.day
+        );
 
-  const weekday = date.toLocaleString("en-US", { weekday: "short" });
-  const month = date.toLocaleString("en-US", { month: "short" });
+        const weekday = date.toLocaleString("en-US", { weekday: "short" });
+        const month = date.toLocaleString("en-US", { month: "short" });
 
-  return `${weekday} ${month} ${basic.day} ${basic.year}`;
+        return `${weekday} ${month} ${basic.day} ${basic.year}`;
+    };
+const formatTimeAMPM = (hour, min) => {
+  if (hour === undefined || min === undefined) return '...';
+
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hours12 = hour % 12 || 12; // converts 0 → 12
+  const minutes = String(min).padStart(2, '0');
+
+  return `${hours12}:${minutes} ${period}`;
 };
-
     return (
         <View style={styles.fullScreenContainer}>
             {/* Header */}
@@ -1909,7 +1945,7 @@ const formatDate = (basic) => {
                         style={{ marginLeft: 15 }}
                     />
                     <Text style={styles.subDetail}>
-                        {basic ? `${basic.hour}:${basic.min}` : "..."}
+                        {basic ? formatTimeAMPM(basic.hour, basic.min) : '...'}
                     </Text>
                     <Icon
                         name="gender-male-female"

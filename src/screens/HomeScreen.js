@@ -19,19 +19,51 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import api from '../apiConfig';
+import MyHeader from '../components/MyHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RefreshControl } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Base design width (Android standard)
-const guidelineBaseWidth = 375;
 
-const scale = (size) => (SCREEN_WIDTH / guidelineBaseWidth) * size;
-const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
 const AstroTalkHome = ({ customerData: propCustomerData }) => {
   const [reviews, setReviews] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [notifications, setNotifications] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+
+      await Promise.all([
+        fetchNotifications(),
+        fetchUpcomingConsultations(),
+        (async () => {
+          const storedData = await AsyncStorage.getItem("customerData");
+          if (storedData) {
+            setCustomerData(JSON.parse(storedData));
+          }
+        })(),
+        (async () => {
+          const response = await axios.get(
+            `https://api.acharyalavbhushan.com/api/customers/get-feedback`,
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+          if (response?.data?.success) {
+            setReviews(response?.data?.data || []);
+          }
+        })(),
+      ]);
+
+    } catch (e) {
+      console.log('Refresh error:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const fetchNotifications = async () => {
     const userData = JSON.parse(await AsyncStorage.getItem('customerData'));
 
@@ -140,7 +172,6 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
     );
   };
   const navigation = useNavigation();
-  const [drawerVisible, setDrawerVisible] = useState(false);
   const [customerData, setCustomerData] = useState(
     {
       customerName: 'User',
@@ -149,112 +180,11 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
     }
   );
 
-  const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.8)).current;
 
-  const drawerData = [
-    // { title: 'Home', icon: 'home-outline' },
-    { title: 'Profile', icon: 'account' },
-    { title: 'My Consultations', icon: 'calendar-check-outline' },
-    // { title: 'Order History', icon: 'history' },
-    { title: 'Free Kundli', icon: 'book-open-page-variant' },
-    { title: 'About Us', icon: 'account-tie' },
-    { title: 'Blogs', icon: 'newspaper-variant' },
-    { title: 'Contact Us', icon: 'headset' },
-    // { title: 'Astrology Blog', icon: 'book-open-page-variant' },
-    // { title: 'Chat With Astrologers', icon: 'chat-outline' },
-    // { title: 'Free Service', icon: 'gift-outline' },
-    // { title: 'Customer Support', icon: 'headset' },
-    // { title: 'Settings', icon: 'cog-outline' },
-    { title: 'Logout', icon: 'logout' },
-    { title: 'Delete Account', icon: 'delete' },
-  ];
-
-  const toggleDrawer = () => {
-    if (!drawerVisible) {
-      setDrawerVisible(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: -SCREEN_WIDTH * 0.8,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setDrawerVisible(false);
-      });
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Do you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await AsyncStorage.removeItem('customerData');
-            await AsyncStorage.removeItem('isLoggedIn');
-            navigation.replace('Login');
-          } catch (error) {
-            console.error('Error during logout:', error);
-          }
-        },
-      },
-    ]);
-  };
-  const handleSupport = () => {
-    setSupportModalVisible(true);
-  };
-  const [supportModalVisible, setSupportModalVisible] = useState(false);
-
-  const handleNavigation = (item) => {
-    const { title } = item;
-    setDrawerVisible(false);
-
-    switch (title) {
-      case 'My Consultations':
-        navigation.navigate('UserConsultationList');
-        break;
-      case 'Free Kundli':
-        navigation.navigate('Free Kundli');
-        break;
-      case 'Chat With Astrologers':
-        navigation.navigate('PoojaList');
-        break;
-      case 'About Us':
-        navigation.navigate('About Us');
-        break;
-      case 'Blogs':
-        navigation.navigate('Blogs');
-        break;
-      case 'Profile':
-        navigation.navigate('SignUp', { isProfile: true });
-        break;
-      case 'Logout':
-        handleLogout();
-        break;
-      case 'Contact Us':
-        handleSupport();
-        break;
-      case 'Astro Remedy':
-        Linking.openURL('https://lifechangingastro.com/').catch(() =>
-          Alert.alert('Error', 'Unable to open URL')
-        );
-        break;
-      default:
-        Alert.alert('Navigation', `Navigate to: ${title}`);
-        break;
-    }
-  };
   const BASE_URL = 'https://alb-web-assets.s3.ap-south-1.amazonaws.com/';
 
   const getImageUrl = (path) =>
     path?.startsWith('http') ? path : `${BASE_URL}${path}`;
-  let Imguri = getImageUrl(customerData.image);
 
   const youtubeVideos = [
     { id: 1, url: "https://youtu.be/gJcMN2tIVT8?si=uXBmL-MptKmILxde", title: "Astrology & Real Life Incidents" },
@@ -343,51 +273,35 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
   useEffect(() => {
     fetchUpcomingConsultations();
   }, []);
-  const handleNotificationPress = async (item) => {
-    await axios.patch(`${api}/mobile/notifications/${item._id}/read`);
+  const handleJoin = async (booking) => {
+    const raw = await AsyncStorage.getItem("customerData");
+    const customer = raw ? JSON.parse(raw) : null;
+    navigation.navigate('ChatScreen', {
+      astrologer: booking.astrologer,
+      userData: customer,
+      time: `${booking.fromTime} - ${booking.toTime}`,
+      date: booking.date
+    });
 
-    if (item.type === 'incoming_call') {
-      navigation.navigate('UserIncomingCallPopup', {
-        booking: JSON.parse(item.data.booking),
-        astrologerData: JSON.parse(item.data.astrologerData),
-        channelName: item.data.channelName,
-      });
-    }
-
-    toggleDropdown();
   };
-  const unreadNotifications = notifications?.filter(n => !n?.isRead) || [];
-  const hasUnread = unreadNotifications.length > 0;
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
-          <View>
-            <Text style={styles.headerTitle}>AstroBook</Text>
-            <Text style={styles.headerSubtitle}>Vedic Astrology</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.notificationButton} onPress={toggleDropdown}>
-          <Icon name="bell-outline" size={24} color="black" />
-          {hasUnread && <View style={styles.notificationBadge} />}
-
-        </TouchableOpacity>
-
-      </View>
-
-
-      {/* Scroll Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      {/* <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" /> */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
+        <MyHeader />
+      </SafeAreaView>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#db9a4a']}      // Android
+            tintColor="#db9a4a"       // iOS
+          />
+        }
+      >
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
           <View style={styles.bannerGradient}>
@@ -413,7 +327,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <Text style={styles.statLabel}>Consultations</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>20+</Text>
+            <Text style={styles.statNumber}>10+</Text>
             <Text style={styles.statLabel}>Years of Experience</Text>
           </View>
           <View style={styles.statBox}>
@@ -421,45 +335,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <Text style={styles.statLabel}>Privacy</Text>
           </View>
         </View>
-
-        {/* Services Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Services</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'voice' })}>
-              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
-                <Icon name="phone-in-talk" size={28} color="#fff" />
-              </View>
-              <Text style={styles.actionText}>Voice Call</Text>
-              {/* <Text style={styles.actionSubtext}>With Expert</Text> */}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
-              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
-                <Icon name="video-outline" size={28} color="#fff" />
-              </View>
-              <Text style={styles.actionText}>Video Call</Text>
-              {/* <Text style={styles.actionSubtext}>Face to Face</Text> */}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'chat' })}>
-              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
-                <Icon name="chat-outline" size={28} color="#fff" />
-              </View>
-              <Text style={styles.actionText}>Chat</Text>
-              {/* <Text style={styles.actionSubtext}>Instant Reply</Text> */}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PoojaList')}>
-              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
-                <Icon name="campfire" size={28} color="#fff" />
-              </View>
-              <Text style={styles.actionText}>Book Pooja</Text>
-              {/* <Text style={styles.actionSubtext}>Book Online Puja</Text> */}
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.section}>
+ <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Consultations</Text>
             {upcomingConsultations.length !== 0 ? (
@@ -478,8 +354,15 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             upcomingConsultations.map((item, index) => {
               const astrologer = item.astrologer || {};
               const startStr = item.fromTime;
+              const endStr = item.toTime;
+              const now = new Date();
+              console.log(startStr, endStr, now)
 
-              const bookingDate = new Date(item.date);
+              const bookingDate = new Date(item.date || now.toISOString());
+              console.log(item.consultationType)
+              const start = startStr ? toDateFromTime(bookingDate, startStr) : null;
+              const end = endStr ? toDateFromTime(bookingDate, endStr) : null;
+              const isJoinTime = start && end && now >= start && now <= end;
 
               const getModeIcon = (mode) => {
                 switch (mode?.toLowerCase()) {
@@ -548,9 +431,22 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
                       <Text style={styles.joinButtonText}>Join</Text>
                     </TouchableOpacity>
                   ) : ( */}
-                  <View style={styles.timeButton}>
+                  {/* <View style={styles.timeButton}>
                     <Text style={styles.timeButtonText}>{startStr || '-'}</Text>
-                  </View>
+                  </View> */}
+                  {(isJoinTime && item.consultationType === 'chat') ? (
+                    <TouchableOpacity
+                      style={styles.joinButton}
+                      onPress={() => handleJoin(item)}
+                    >
+                      <Text style={styles.joinButtonText}>Join</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.timeButton}>
+                      <Text style={styles.timeButtonText}>{startStr || '-'}</Text>
+                    </View>
+                  )}
+
                   {/* )} */}
                 </View>
 
@@ -558,6 +454,44 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             })
           )}
         </View>
+        {/* Services Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Our Services</Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'voice' })}>
+              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
+                <Icon name="phone-in-talk" size={28} color="#fff" />
+              </View>
+              <Text style={styles.actionText}>Voice Call</Text>
+              {/* <Text style={styles.actionSubtext}>With Expert</Text> */}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
+              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
+                <Icon name="video-outline" size={28} color="#fff" />
+              </View>
+              <Text style={styles.actionText}>Video Call</Text>
+              {/* <Text style={styles.actionSubtext}>Face to Face</Text> */}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'chat' })}>
+              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
+                <Icon name="chat-outline" size={28} color="#fff" />
+              </View>
+              <Text style={styles.actionText}>Chat</Text>
+              {/* <Text style={styles.actionSubtext}>Instant Reply</Text> */}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PoojaList', { routeMode: false })}>
+              <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
+                <Icon name="campfire" size={28} color="#fff" />
+              </View>
+              <Text style={styles.actionText}>Book Pooja</Text>
+              {/* <Text style={styles.actionSubtext}>Book Online Puja</Text> */}
+            </TouchableOpacity>
+          </View>
+        </View>
+       
         {/* Free Services */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -632,7 +566,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Special Offerings</Text>
 
-          <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList')}>
+          <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList', { routeMode: false })}>
             <View style={styles.specialLeft}>
               <Icon name="campfire" size={36} color="#db9a4a" />
             </View>
@@ -722,206 +656,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         {/* Bottom Spacing */}
         <View style={{ height: 30 }} />
       </ScrollView>
-      <Modal
-        transparent={true}
-        visible={supportModalVisible}
-        animationType="fade"
-        onRequestClose={() => setSupportModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
 
-            <Text style={styles.modalTitle}>Contact Information</Text>
-
-            {/* Email */}
-            <View style={styles.row}>
-              <Icon name="email-outline" size={22} color="#db9a4a" />
-              <View style={styles.col}>
-                <Text style={styles.label}>Email</Text>
-                <Text style={styles.value}>info@acharyalavbhushan.com</Text>
-              </View>
-            </View>
-
-            {/* Website Queries */}
-            <View style={styles.row}>
-              <Icon name="phone" size={22} color="#db9a4a" />
-              <View style={styles.col}>
-                <Text style={styles.label}>Consultation related queries</Text>
-                <Text style={styles.value}>+91 92579 91666</Text>
-              </View>
-            </View>
-
-            {/* Reports Queries */}
-            {/* <View style={styles.row}>
-              <Icon name="phone" size={22} color="#db9a4a" />
-              <View style={styles.col}>
-                <Text style={styles.label}>Reports related queries</Text>
-                <Text style={styles.value}>+91 97837 62666</Text>
-              </View>
-            </View> */}
-
-            {/* Address */}
-            <View style={styles.row}>
-              <Icon name="map-marker-outline" size={24} color="#db9a4a" />
-              <View style={styles.col}>
-                <Text style={styles.label}>Office</Text>
-                <Text style={styles.value}>
-                  Plot no. 177, Near Suresh Gyan Vihar University,{"\n"}
-                  OBC Colony, Jagatpura,{"\n"}
-                  Jaipur, Rajasthan
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setSupportModalVisible(false)}
-            >
-              <Text style={styles.modalButtonText}>Close</Text>
-            </TouchableOpacity>
-
-          </View>
-        </View>
-      </Modal>
-
-
-
-      {/* Drawer Modal */}
-      <Modal visible={drawerVisible} animationType="fade" transparent onRequestClose={toggleDrawer}>
-        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={toggleDrawer}>
-          <Animated.View style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}>
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={{ flex: 1 }}>
-              <ScrollView>
-                {/* Drawer Header */}
-                <View style={styles.drawerHeader}>
-                  <View style={styles.profileContainer}>
-                    <View style={styles.avatarWrapper}>
-                      <Image
-                        source={{ uri: Imguri }}
-                        style={styles.avatar}
-                      />
-                      <View style={styles.avatarBadge}>
-                        <Text style={styles.avatarBadgeText}>✓</Text>
-                      </View>
-                    </View>
-                    <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{customerData.customerName}</Text>
-                      <Text style={styles.phoneText}>{customerData.phoneNumber}</Text>
-                      <View style={styles.premiumBadge}>
-                        <Text style={styles.premiumText}>⭐ Premium User</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Drawer Menu */}
-                <View style={styles.menuWrapper}>
-                  {drawerData.map((item, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.menuItem}
-                      onPress={() => handleNavigation(item)}
-                    >
-                      <View style={styles.menuIconWrapper}>
-                        <Icon name={item.icon} size={24} color="#444" />
-                      </View>
-
-                      <Text style={styles.menuText}>{item.title}</Text>
-
-                      <Text style={styles.menuArrow}>›</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Social */}
-                <View style={styles.socialWrapper}>
-                  <Text style={styles.socialText}>Connect With Us</Text>
-
-                  <View style={styles.socialRow}>
-
-                    {/* Facebook */}
-                    <TouchableOpacity
-                      style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.facebook.com/acharyalavbhushan09/')}
-                    >
-                      <Icon name="facebook" size={26} color="#9C7A56" />
-                    </TouchableOpacity>
-
-                    {/* Instagram */}
-                    <TouchableOpacity
-                      style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.instagram.com/acharyalavbhushan/')}
-                    >
-                      <Icon name="instagram" size={26} color="#9C7A56" />
-                    </TouchableOpacity>
-
-                    {/* LinkedIn */}
-                    <TouchableOpacity
-                      style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.linkedin.com/in/acharyalavbhushan/')}
-                    >
-                      <Icon name="linkedin" size={26} color="#9C7A56" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.socialButton}
-                      onPress={() => Linking.openURL('https://www.youtube.com/@acharyalavbhushan')}
-                    >
-                      <Icon name="youtube" size={26} color="#9C7A56" />
-                    </TouchableOpacity>
-
-                  </View>
-                </View>
-                <Text style={styles.versionText}>Version 1.0.0</Text>
-              </ScrollView>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-      {showDropdown && (
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={toggleDropdown}
-        >
-          <Animated.View
-            style={[
-              styles.dropdownContainer,
-              { transform: [{ scale: scaleAnim }] }
-            ]}
-          >
-            {/* Arrow */}
-            <View style={styles.arrowUp} />
-
-            <View style={styles.dropdownBox}>
-              <Text style={styles.title}>Notifications</Text>
-
-              <ScrollView style={{ maxHeight: 250 }}>
-                {notifications.length === 0 ? (
-                  <Text style={{ color: '#777', textAlign: 'center' }}>
-                    No notifications
-                  </Text>
-                ) : (
-                  notifications
-                    .filter(item => !item?.isRead)
-                    .map(item => (
-                      <TouchableOpacity
-                        key={item._id}
-                        style={styles.notificationItem}
-                      // onPress={() => handleNotificationPress(item)}
-                      >
-                        <Text style={styles.notificationText}>
-                          • {item.title}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                )}
-
-              </ScrollView>
-
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
-      )}
 
     </View>
   );
@@ -1125,7 +860,7 @@ const styles = StyleSheet.create({
 
   // Content Styles
   content: {
-    flex: 1,
+    // flex: 1,
   },
 
   // Hero Banner

@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator();
 export default function BottomTabs() {
   return (
     <Tab.Navigator
-    initialRouteName="VideoTab"
+      initialRouteName="VideoTab"
       screenOptions={({ route }) => ({
         headerShown: false, // header is inside STACK, not tabs!
         tabBarActiveTintColor: "#000",
@@ -69,12 +69,12 @@ export default function BottomTabs() {
         },
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeStack} options={{ title: "Home" }} 
-      listeners={({ navigation }) => ({
-      tabPress: (e) => {
-        navigation.navigate('HomeTab', { screen: 'HomeTab' });
-      }
-    })}/>
+      <Tab.Screen name="HomeTab" component={HomeStack} options={{ title: "Home" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('HomeTab', { screen: 'HomeTab' });
+          }
+        })} />
       <Tab.Screen name="VoiceTab" component={VoiceCallStack} options={{ title: "Voice" }} />
       <Tab.Screen name="VideoTab" component={VideoCallStack} options={{ title: "Video" }} />
       <Tab.Screen name="ChatTab" component={ChatStack} options={{ title: "Chat" }} />

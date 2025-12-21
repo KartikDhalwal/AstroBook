@@ -8,6 +8,8 @@ import {
     ScrollView,
     StatusBar,
     TextInput,
+    Platform,
+    PermissionsAndroid,
 } from 'react-native';
 import axios from 'axios';
 import api from '../apiConfig';
@@ -15,14 +17,51 @@ import MyLoader from '../components/MyLoader';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from '@react-native-firebase/messaging';
+import { RefreshControl } from 'react-native';
 
 const UserConsultationList = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [consultations, setConsultations] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('upcoming');
+    const [refreshing, setRefreshing] = useState(false);
 
     const navigation = useNavigation();
+    const requestNotificationPermissionIfNeeded = async () => {
+        try {
+            // 🔹 Android 13+
+            if (Platform.OS === 'android' && Platform.Version >= 33) {
+                const granted = await PermissionsAndroid.check(
+                    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+                );
+
+                if (!granted) {
+                    const result = await PermissionsAndroid.request(
+                        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+                    );
+
+                    if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+                        console.log('Notification permission denied');
+                        return;
+                    }
+                }
+            }
+
+            // 🔹 Firebase permission (covers Android <13 + iOS)
+            const authStatus = await messaging().hasPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+            if (!enabled) {
+                await messaging().requestPermission();
+            }
+
+        } catch (error) {
+            console.log('Notification permission error:', error);
+        }
+    };
 
     const getConsultations = async () => {
         setIsLoading(true);
@@ -36,7 +75,6 @@ const UserConsultationList = () => {
             );
 
             if (response?.data?.success) {
-                console.log(response?.data?.bookings, 'response?.data?.bookings ')
                 setConsultations(response?.data?.bookings || []);
             } else {
                 Alert.alert('No Consultations', 'No records found.');
@@ -48,9 +86,26 @@ const UserConsultationList = () => {
             setIsLoading(false);
         }
     };
+    const isSameDay = (d1, d2) => {
+        return (
+            d1.getFullYear() === d2.getFullYear() &&
+            d1.getMonth() === d2.getMonth() &&
+            d1.getDate() === d2.getDate()
+        );
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await getConsultations();
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     useEffect(() => {
         getConsultations();
+        requestNotificationPermissionIfNeeded();
     }, []);
 
     // ------------------------------
@@ -87,7 +142,6 @@ const UserConsultationList = () => {
         return { startDate, endDate };
     };
 
-
     // UPCOMING (Today's & time not passed)
     const upcoming = searchFiltered.filter((item) => {
         if (item?.status !== "booked") return false;
@@ -113,8 +167,6 @@ const UserConsultationList = () => {
         return false;
     });
 
-
-
     // PENDING (Date passed OR today's time passed)
     const pending = searchFiltered.filter((item) => {
         if (item?.status !== "booked") return false;
@@ -128,13 +180,10 @@ const UserConsultationList = () => {
         return now > endDate;
     });
 
-
-    console.log({ searchFiltered })
     // COMPLETED
     const completed = searchFiltered.filter(
-        (item) => item?.status === "completed" || item?.status === "user_not_joined"
+        (item) => item?.status === "completed"
     );
-
 
     let currentList = [];
     if (activeTab === 'upcoming') currentList = upcoming;
@@ -199,7 +248,7 @@ const UserConsultationList = () => {
             <View style={styles.tabsContainer}>
                 {[
                     { key: 'upcoming', label: 'Upcoming' },
-                    { key: 'pending', label: 'Failed' },
+                    // { key: 'pending', label: 'Expired' },
                     { key: 'completed', label: 'Completed' },
                 ].map((tab) => (
                     <TouchableOpacity
@@ -222,9 +271,22 @@ const UserConsultationList = () => {
                 ))}
             </View>
 
-            <ScrollView style={styles.scrollContent}>
+            <ScrollView style={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={['#db9a4a']}
+                        tintColor="#db9a4a"
+                    />
+                }
+            >
                 {currentList.length === 0 ? (
-                    <Text style={styles.noDataText}>No consultations found.</Text>
+                    <View style={styles.emptyState}>
+                        <Icon name="crystal-ball" size={60} color="#db9a4a" style={{ marginBottom: 16 }} />
+                        <Text style={styles.emptyText}>No Consultations</Text>
+                        <Text style={styles.emptySubtext}>Please check back later</Text>
+                    </View>
                 ) : (
                     currentList.map((item, index) => {
                         const astrologerName = item?.astrologer?.name || 'Astrologer';
@@ -282,9 +344,11 @@ const UserConsultationList = () => {
                                     <Text style={styles.details}>
                                         Experience: {experience} yrs
                                     </Text>
-                                    <Text style={styles.details}>
-                                        Rating: ⭐ {rating}
-                                    </Text>
+                                    {rating !== 0 &&
+                                        <Text style={styles.details}>
+                                            Rating: ⭐ {rating}
+                                        </Text>
+                                    }
                                     <Text style={styles.details}>
                                         Date: {formattedDate}
                                     </Text>
@@ -335,20 +399,24 @@ const UserConsultationList = () => {
 
 
                                         {/* Reschedule Button (Only for pending) */}
-                                        {activeTab === "pending" && (
-                                            <TouchableOpacity
-                                                style={[styles.detailsButton, styles.rescheduleButton]}
-                                                onPress={() => navigation.navigate('SelectSlotScreenReschedule', {
-                                                    astrolgerId: item.astrologer?._id,
-                                                    id:item?._id,
-                                                    mode,
-                                                    booking:item
-                                                })}
-                                            >
-                                                <Text style={styles.detailsButtonText}>Reschedule</Text>
-                                                <Icon name="calendar-edit" size={18} color="#fff" />
-                                            </TouchableOpacity>
-                                        )}
+                                        {activeTab === "upcoming" &&
+                                            !isSameDay(new Date(item.date), new Date()) && (
+                                                <TouchableOpacity
+                                                    style={[styles.detailsButton, styles.rescheduleButton]}
+                                                    onPress={() =>
+                                                        navigation.navigate('SelectSlotScreenReschedule', {
+                                                            astrolgerId: item.astrologer?._id,
+                                                            id: item?._id,
+                                                            mode,
+                                                            booking: item
+                                                        })
+                                                    }
+                                                >
+                                                    <Text style={styles.detailsButtonText}>Reschedule</Text>
+                                                    <Icon name="calendar-edit" size={18} color="#fff" />
+                                                </TouchableOpacity>
+                                            )}
+
                                     </View>
 
 
@@ -462,7 +530,9 @@ const styles = StyleSheet.create({
         color: '#333',
         fontSize: 15,
     },
-
+    emptyState: { alignItems: 'center', paddingVertical: 160 },
+    emptyText: { fontSize: 18, fontWeight: '600', color: '#2C1810', marginBottom: 8 },
+    emptySubtext: { fontSize: 14, color: '#666' },
     /* Cards */
     scrollContent: {
         paddingHorizontal: 12,

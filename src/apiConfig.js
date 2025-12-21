@@ -1,3 +1,4 @@
-const api = 'https://inventory.sveprajasthan.com/api'
+const api = 'https://alb.gennextit.com/api'
 
 export default api
+

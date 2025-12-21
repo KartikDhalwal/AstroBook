@@ -17,9 +17,18 @@ import api from '../apiConfig';
 import RazorpayCheckout from 'react-native-razorpay';
 import { Calendar } from 'react-native-calendars';
 import { Modal } from 'react-native';
+import Toast from "react-native-toast-message";
 
 const SelectSlotScreen = ({ route }) => {
   const navigation = useNavigation();
+  const isMountedRef = React.useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const { astrolger, mode } = route.params || {};
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 2);
@@ -71,9 +80,10 @@ const SelectSlotScreen = ({ route }) => {
         { headers: { "Content-Type": "application/json" } }
 
       );
+      console.log(res.data?.slotDates, 'res.data?.slotDates')
       const dates =
         res.data?.slotDates?.map((d) => d.slice(0, 10)) || [];
-
+      console.log(dates, 'dates')
       setEnabledDates(dates);
     } catch (err) {
       console.log("Slot date API error:", err);
@@ -83,29 +93,29 @@ const SelectSlotScreen = ({ route }) => {
       setIsLoading(false);
     }
   };
-useEffect(() => {
-  if (enabledDates.length > 0 && !selectedDate) {
-    const firstEnabled = enabledDates[0]; // STRING
-    setSelectedDate(firstEnabled);
-    onChangeDate(firstEnabled);
-  }
-}, [enabledDates]);
-const formatDisplayDate = (dateStr) => {
-  if (!dateStr) return "";
-  return new Date(dateStr + "T00:00:00").toDateString();
-};
+  useEffect(() => {
+    if (enabledDates.length > 0 && !selectedDate) {
+      const firstEnabled = enabledDates[0]; // STRING
+      setSelectedDate(firstEnabled);
+      onChangeDate(firstEnabled);
+    }
+  }, [enabledDates]);
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr + "T00:00:00").toDateString();
+  };
 
 
-const onChangeDate = async (selectedStr) => {
-  if (!enabledDates.includes(selectedStr)) {
-    Alert.alert(
-      "Date Unavailable",
-      "No slots available for the selected duration on this date."
-    );
-    return;
-  }
+  const onChangeDate = async (selectedStr) => {
+    if (!enabledDates.includes(selectedStr)) {
+      Alert.alert(
+        "Date Unavailable",
+        "No slots available for the selected duration on this date."
+      );
+      return;
+    }
 
-  setSelectedDate(selectedStr); // store STRING
+    setSelectedDate(selectedStr); // store STRING
 
 
     const now = new Date();
@@ -161,27 +171,6 @@ const onChangeDate = async (selectedStr) => {
       const customerData = JSON.parse(
         await AsyncStorage.getItem("customerData")
       );
-      console.log({
-        amount: selectedDuration.price,
-        customerId: customerData._id,
-        astrologerId: astrolger._id,
-        slotId: slotId,
-        consultationType: selectedMode === 'video' ? 'videocall' : selectedMode === 'voice' ? 'call' : 'chat',
-        fullName: customerData?.customerName,
-        mobileNumber: customerData?.phoneNumber,
-        email: customerData?.email,
-        dateOfBirth: customerData?.dateOfBirth,
-        timeOfBirth: customerData?.timeOfBirth,
-        placeOfBirth: customerData?.placeOfBirth,
-        gender: customerData?.gender,
-        latitude: customerData?.address?.latitude,
-        longitude: customerData?.address?.longitude,
-        duration: selectedDuration?.duration?.slotDuration,
-        startTime: selectedDate,
-        paymentMethod: "razorpay",
-        status: "new",
-        source: "mobile"
-      })
       const response = await axios.post(
         `${api}/customers/book_consultation_order`,
         {
@@ -207,7 +196,6 @@ const onChangeDate = async (selectedStr) => {
         },
         { headers: { "Content-Type": "application/json" } }
       );
-      console.log({ response })
       const {
         data: order,
         key_id,
@@ -228,7 +216,9 @@ const onChangeDate = async (selectedStr) => {
         },
         theme: { color: "#db9a4a" },
       };
-
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
       RazorpayCheckout.open(options)
         .then(async (paymentData) => {
           await axios.post(
@@ -241,17 +231,20 @@ const onChangeDate = async (selectedStr) => {
             }
           );
 
-          Alert.alert(
-            "Payment Successful",
-            "Your consultation has been booked successfully!",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-          );
+          Toast.show({
+            type: "success",
+            text1: "Payment Successful",
+            text2: "Your consultation has been booked successfully!",
+          });
         })
         .catch((error) => {
-          Alert.alert(
-            "Payment Failed",
-            error?.description || "Payment was cancelled"
-          );
+          if (!isMountedRef.current) return;
+
+    Toast.show({
+      type: "error",
+      text1: "Payment Cancelled",
+      text2: "You cancelled the payment",
+    });
         });
     } catch (err) {
       console.log("Booking Error:", err);
@@ -489,16 +482,16 @@ const onChangeDate = async (selectedStr) => {
                   </View>
 
                   <Calendar
-  current={selectedDate}   // 👈 important
-  minDate={enabledDates[0]}
-  maxDate={enabledDates[enabledDates.length - 1]}
-  markedDates={getMarkedDates()}
-  onDayPress={(day) => {
-    setShowDatePicker(false);
-    onChangeDate(day.dateString);
-  }}
-  disableAllTouchEventsForDisabledDays
-/>
+                    current={selectedDate}   // 👈 important
+                    minDate={enabledDates[0]}
+                    maxDate={enabledDates[enabledDates.length - 1]}
+                    markedDates={getMarkedDates()}
+                    onDayPress={(day) => {
+                      setShowDatePicker(false);
+                      onChangeDate(day.dateString);
+                    }}
+                    disableAllTouchEventsForDisabledDays
+                  />
 
 
 
@@ -583,8 +576,8 @@ const onChangeDate = async (selectedStr) => {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Date:</Text>
                 <Text style={styles.summaryValue}>
-  {selectedDate ? formatDisplayDate(selectedDate) : ""}
-</Text>
+                  {selectedDate ? formatDisplayDate(selectedDate) : ""}
+                </Text>
 
               </View>
               <View style={styles.summaryRow}>

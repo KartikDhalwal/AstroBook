@@ -9,16 +9,25 @@ import {
 } from "react-native";
 import axios from "axios";
 import REACT_APP_GOOGLE_MAPS_API_KEY from "../apiConfig";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
-const PlaceInput = ({ label, onSelect,value }) => {
-  const [query, setQuery] = useState(value ?? '');
+const PlaceInput = ({
+  onSelect,
+  value,
+  containerStyle,
+  inputStyle,
+  iconColor,
+  disabled = false,
+}) => {
+  const [query, setQuery] = useState(value ?? "");
   const [results, setResults] = useState([]);
-  console.log({query})
-    useEffect(() => {
-    setQuery(value ?? '');
+
+  useEffect(() => {
+    setQuery(value ?? "");
   }, [value]);
+
   const searchPlaces = async (text) => {
+    if (disabled) return;
     setQuery(text);
 
     if (text.length < 2) {
@@ -28,11 +37,10 @@ const PlaceInput = ({ label, onSelect,value }) => {
 
     try {
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${text}&key=AIzaSyBmEP5a5at63KESOSjFAO_R8vTW6VzuuqA`;
-      const response = await axios.get(url);
-
-      setResults(response.data.predictions);
-    } catch (err) {
-      console.log("Places error:", err);
+      const res = await axios.get(url);
+      setResults(res.data.predictions);
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -40,106 +48,76 @@ const PlaceInput = ({ label, onSelect,value }) => {
     setQuery(place.description);
     setResults([]);
 
-    try {
-      const detailURL = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&key=AIzaSyBmEP5a5at63KESOSjFAO_R8vTW6VzuuqA`;
-      const response = await axios.get(detailURL);
+    const detailURL = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&key=AIzaSyBmEP5a5at63KESOSjFAO_R8vTW6VzuuqA`;
+    const res = await axios.get(detailURL);
+    const loc = res.data.result.geometry.location;
 
-      const loc = response.data.result.geometry.location;
-
-      onSelect({
-        description: place.description,
-        latitude: loc.lat,
-        longitude: loc.lng,
-      });
-    } catch (err) {
-      console.log("Detail fetch error:", err);
-    }
+    onSelect({
+      description: place.description,
+      latitude: loc.lat,
+      longitude: loc.lng,
+    });
   };
 
   return (
-    <View style={{ width: "100%" }}>
-      {/* Search Input Container */}
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="place"
-          size={18}
-          color="#9C7A56"
-          style={styles.inputIcon}
-        />
+    <View>
+      <View style={containerStyle}>
+        <Icon name="map-marker" size={20} color={iconColor} />
 
         <TextInput
-          placeholder="Enter place"
-          placeholderTextColor="#AAA"
           value={query}
+          editable={!disabled}
+          placeholder="Enter place of birth"
+          placeholderTextColor="#999"
           onChangeText={searchPlaces}
-          style={styles.textInput}
+          style={inputStyle}  
         />
       </View>
 
-      {/* Dropdown List */}
       {results.length > 0 && (
-        <FlatList
-          style={styles.dropdown}
-          data={results}
-          keyExtractor={(item) => item.place_id}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => selectPlace(item)}>
-              <Text style={styles.item}>{item.description}</Text>
+        <View style={dropdownStyles.dropdown}>
+          {results.map(item => (
+            <TouchableOpacity
+              key={item.place_id}
+              onPress={() => selectPlace(item)}
+            >
+              <Text style={dropdownStyles.item}>{item.description}</Text>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </View>
       )}
     </View>
   );
 };
+
+
 
 export default PlaceInput;
 
 /* -----------------------------------------------------
       COMPACT UI STYLES (MATCHES YOUR SCREEN)
 ------------------------------------------------------ */
-
-const styles = StyleSheet.create({
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8F4EF",
-    borderWidth: 1,
-    borderColor: "#E8DCC8",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,       // medium compact
-    minHeight: 44,             // medium compact
-  },
-
-  inputIcon: {
-    marginRight: 8,
-  },
-
-  textInput: {
-    flex: 1,
-    fontSize: 14,
-    color: "#2C1810",
-    paddingVertical: 0,
-  },
-
+const dropdownStyles = StyleSheet.create({
   dropdown: {
     backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E8DCC8",
-    borderRadius: 10,
+    borderRadius: 14,
     marginTop: 6,
-    elevation: 1,
-    maxHeight: 160,
+    maxHeight: 180,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E5D5C8",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-
   item: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 13,
-    color: "#333",
-    borderBottomWidth: 0.7,
-    borderColor: "#EEE",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: "#2C1810",
+    borderBottomWidth: 1,
+    borderColor: "#F0F0F0",
   },
 });

@@ -36,7 +36,7 @@ const KundliMatchingScreen = () => {
   const [showMaleDatePicker, setShowMaleDatePicker] = useState(false);
   const [showMaleTimePicker, setShowMaleTimePicker] = useState(false);
 
-  const handleMaleInputField = (name, value) =>setMaleInputField(prev => ({ ...prev, [name]: value }))
+  const handleMaleInputField = (name, value) => setMaleInputField(prev => ({ ...prev, [name]: value }))
 
   // ---------------------- FEMALE INPUTS ------------------------
   const [femaleInputField, setFemaleInputField] = useState({
@@ -51,7 +51,7 @@ const KundliMatchingScreen = () => {
   const [showFemaleDatePicker, setShowFemaleDatePicker] = useState(false);
   const [showFemaleTimePicker, setShowFemaleTimePicker] = useState(false);
 
-  const handleFemaleInputField = (name, value) =>setFemaleInputField(prev => ({ ...prev, [name]: value }))
+  const handleFemaleInputField = (name, value) => setFemaleInputField(prev => ({ ...prev, [name]: value }))
 
 
   // ----------------------- INPUT ERRORS ------------------------
@@ -60,9 +60,17 @@ const KundliMatchingScreen = () => {
     setInputFieldError({ ...inputFieldError, [name]: value });
 
   // Format date and time
-  const formatDate = (date) => {
-    return date.toLocaleDateString("en-GB");
-  };
+const formatDate = (date) => {
+  if (!date) return "";
+
+  return date.toLocaleDateString("en-US", {
+    weekday: "short", // Fri
+    month: "short",   // Dec
+    day: "2-digit",   // 19
+    year: "numeric",  // 2025
+  });
+};
+
 
   const formatTime = (time) => {
     return time.toLocaleTimeString("en-US", {
@@ -113,35 +121,33 @@ const KundliMatchingScreen = () => {
   };
 
   const handleGetReport = async () => {
-    console.log("Male Place:", maleInputField.place_of_birth);
-console.log("Female Place:", femaleInputField.place_of_birth);
 
     if (!handleValidation()) return;
 
     const customerData = JSON.parse(await AsyncStorage.getItem("customerData"));
-
+    console.log(maleInputField,'maleInputField')
     try {
       const payload = {
         maleKundliData: {
-          name: maleInputField.name,
+          name: maleInputField.name?.trim(),
           dob: maleInputField.birth_date.toISOString(),
           tob: combineDateAndTime(
             maleInputField.birth_date,
             maleInputField.birth_time
           ),
-          MaleplaceOfBirth: maleInputField.place_of_birth,
+          place: maleInputField.place_of_birth,
           lat: maleInputField.latitude ?? "26.4498954",
           lon: maleInputField.longitude ?? "74.6399163",
         },
 
         femaleKundliData: {
-          name: femaleInputField.name,
+          name: femaleInputField.name?.trim(),
           dob: femaleInputField.birth_date.toISOString(),
           tob: combineDateAndTime(
             femaleInputField.birth_date,
             femaleInputField.birth_time
           ),
-          FemaleplaceOfBirth: femaleInputField.place_of_birth,
+          place: femaleInputField.place_of_birth,
           lat: femaleInputField.latitude,
           lon: femaleInputField.longitude,
         },
@@ -338,18 +344,21 @@ console.log("Female Place:", femaleInputField.place_of_birth);
               {/* Place of Birth */}
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Place of Birth</Text>
-                <PlaceInput
-                  label="Place of Birth"
-                  onSelect={(location) => {
-                    handleMaleInputField(
-                      "place_of_birth",
-                      location.description
-                    );
-                    handleMaleInputField("latitude", location.latitude);
-                    handleMaleInputField("longitude", location.longitude);
-                    handleInputFieldError("boysPlaceOfBirth", null);
-                  }}
-                />
+                <View style={styles.placeInputWrapper}>
+                  <PlaceInput
+                    value={maleInputField.place_of_birth}
+                    containerStyle={styles.inputContainer}
+                    inputStyle={styles.textInput}
+                    iconColor="#9C7A56"
+                    onSelect={(location) => {
+                      handleMaleInputField("place_of_birth", location.description);
+                      handleMaleInputField("latitude", location.latitude);
+                      handleMaleInputField("longitude", location.longitude);
+                      handleInputFieldError("boysPlaceOfBirth", null);
+                    }}
+                  />
+                </View>
+
                 {inputFieldError.boysPlaceOfBirth && (
                   <Text style={styles.errorText}>
                     {inputFieldError.boysPlaceOfBirth}
@@ -485,18 +494,21 @@ console.log("Female Place:", femaleInputField.place_of_birth);
               {/* Place of Birth */}
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Place of Birth</Text>
-                <PlaceInput
-                  label="Place of Birth"
-                  onSelect={(location) => {
-                    handleFemaleInputField(
-                      "place_of_birth",
-                      location.description
-                    );
-                    handleFemaleInputField("latitude", location.latitude);
-                    handleFemaleInputField("longitude", location.longitude);
-                    handleInputFieldError("girlsPlaceOfBirth", null);
-                  }}
-                />
+                <View style={styles.placeInputWrapper}>
+                  <PlaceInput
+                    value={femaleInputField.place_of_birth}
+                    containerStyle={styles.inputContainer}
+                    inputStyle={styles.textInput}
+                    iconColor="#9C7A56"
+                    onSelect={(location) => {
+                      handleFemaleInputField("place_of_birth", location.description);
+                      handleFemaleInputField("latitude", location.latitude);
+                      handleFemaleInputField("longitude", location.longitude);
+                      handleInputFieldError("girlsPlaceOfBirth", null);
+                    }}
+                  />
+                </View>
+
                 {inputFieldError.girlsPlaceOfBirth && (
                   <Text style={styles.errorText}>
                     {inputFieldError.girlsPlaceOfBirth}
@@ -630,6 +642,10 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     padding: 6,
+  },
+  placeInputWrapper: {
+    position: "relative",
+    zIndex: 1000, // fixes Android dropdown overlap
   },
 
   /* HERO BANNER - COMPACT */

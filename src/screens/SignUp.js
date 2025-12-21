@@ -23,11 +23,12 @@ import Modal from 'react-native-modal';
 import api from '../apiConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PlaceInput from '../components/PlaceInput';
+import Toast from "react-native-toast-message";
 
 const { width } = Dimensions.get('screen');
 
 const SignUp = ({ navigation, route }) => {
-  const { customer, isProfile } = route.params || {};
+  const { customer, isProfile, isLogin } = route.params || {};
 
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -40,41 +41,154 @@ const SignUp = ({ navigation, route }) => {
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongitude] = useState(0);
   const [customerId, setCustomerId] = useState(null);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [pickedImage, setPickedImage] = useState(null); // 👈 NEW
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [otp, setOtp] = useState("");
+  const [otpFor, setOtpFor] = useState(null); // "email" | "phone"
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   /* ================= PERMISSIONS ================= */
+  const sendUpdateOtp = async (type) => {
+    try {
+      // ✅ EMAIL VALIDATION
+      if (type === "email") {
+        if (!email?.trim()) {
+          Alert.alert("Error", "Please enter email address");
+          return;
+        }
 
-  const requestCameraPermission = async () => {
-    if (Platform.OS !== 'android') return true;
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.CAMERA
-    );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
+        if (!isValidEmail(email)) {
+          Alert.alert("Invalid Email", "Please enter a valid email address");
+          return;
+        }
+      }
+
+      setLoading(true);
+
+      const payload = {
+        customerId: customerId,
+        ...(type === "email"
+          ? { email }
+          : { phoneNumber }),
+      };
+
+      const res = await axios.post(
+        `${api}/customers/send-update-otp`,
+        payload
+      );
+
+      if (res.data.success) {
+        Toast.show({
+          type: "success",
+          text1: "OTP Sent",
+          text2: `OTP sent to your ${type}`,
+        });
+
+        setOtpFor(type);
+        setOtpSent(true);
+        setOtp("");
+        setOtpModalVisible(true);
+      } else {
+        Alert.alert("Error", res.data.message || "Failed to send OTP");
+      }
+    } catch (err) {
+      Alert.alert(
+        "Error",
+        err?.response?.data?.message || "Unable to send OTP"
+      );
+      setOtpModalVisible(false);
+      setOtpSent(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
 
+  const verifyAndUpdate = async () => {
+    if (!otp) {
+      Alert.alert("Error", "Please enter OTP");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        customerId: customerId,
+        otp,
+        ...(otpFor === "email"
+          ? { email }
+          : { phoneNumber }),
+      };
+
+      const res = await axios.post(
+        `${api}/customers/update-contact`,
+        payload
+      );
+
+      if (res.data.success) {
+        // Alert.alert("Success", "Updated successfully");
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: 'Updated successfully',
+        });
+        setOtp("");
+        setOtpSent(false);
+        setOtpFor(null);
+        setOtpModalVisible(false);
+        setIsEditingPhone(false);
+        setIsEditingEmail(false);
+      } else {
+        Alert.alert("Error", res.data.message || "Invalid OTP");
+      }
+    } catch (err) {
+      Alert.alert("Error", "OTP verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ================= IMAGE PICKER ================= */
   const loadCustomerId = async () => {
     const raw = await AsyncStorage.getItem('customerData');
     if (!raw) return;
-    
+
     const data = JSON.parse(raw);
     console.log(data)
     if (data?._id) {
       setCustomerId(data._id);
     }
   };
+  const requestCameraPermission = async () => {
+    if (Platform.OS !== 'android') return true;
+
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.CAMERA
+    );
+
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  };
+
   const getProfilePic = useCallback(async (type, options) => {
     if (type === 'capture') {
       const ok = await requestCameraPermission();
-      if (!ok) return Alert.alert('Permission denied', 'Camera permission required');
+      if (!ok) return Alert.alert('Permission denied');
     }
+
+    // if (type === 'gallery') {
+    //   const ok = await requestStoragePermission();
+    //   if (!ok) return Alert.alert('Permission denied');
+    // }
 
     const picker =
       type === 'capture'
@@ -83,11 +197,22 @@ const SignUp = ({ navigation, route }) => {
 
     picker(options, res => {
       setModalVisible(false);
-      if (res?.assets?.length) {
-        setProfileImage(res.assets[0]);
+
+      if (res.didCancel) return;
+      if (res.errorCode) {
+        Alert.alert('Error', res.errorMessage || 'Image error');
+        return;
+      }
+
+      if (res.assets?.length) {
+        const asset = res.assets[0];
+        setProfileImage({ uri: asset.uri }); // UI only
+        setPickedImage(asset);               // UPLOAD only
       }
     });
   }, []);
+
+
 
   /* ================= FETCH USER FROM API ================= */
 
@@ -100,7 +225,6 @@ const SignUp = ({ navigation, route }) => {
       if (!res.data.success) return;
 
       const data = res.data.customersDetail;
-      console.log(data,'data')
       setCustomerName(data.customerName || '');
       setPhoneNumber(data.phoneNumber || '');
       setEmail(data.email || '');
@@ -108,18 +232,17 @@ const SignUp = ({ navigation, route }) => {
 
       if (data.dateOfBirth) setDateOfBirth(new Date(data.dateOfBirth));
       if (data.timeOfBirth) setTimeOfBirth(new Date(data.timeOfBirth));
-      console.log(data?.address?.birthPlace,'data?.address?.birthPlace')
       setPlaceOfBirth(data?.address?.birthPlace || '');
       setLatitude(data?.address?.latitude || 0);
       setLongitude(data?.address?.longitude || 0);
 
       if (data.image) {
-  const imageUrl = data.image.startsWith('http')
-    ? data.image
-    : `https://alb-web-assets.s3.ap-south-1.amazonaws.com/${data.image}`;
+        const imageUrl = data.image.startsWith('http')
+          ? data.image
+          : `https://alb-web-assets.s3.ap-south-1.amazonaws.com/${data.image}`;
 
-  setProfileImage({ uri: imageUrl });
-}
+        setProfileImage({ uri: imageUrl });
+      }
 
     } catch (err) {
       console.log('Customer fetch error:', err);
@@ -137,32 +260,43 @@ const SignUp = ({ navigation, route }) => {
   }, [customerId]);
 
   /* ================= IMAGE UPLOAD ================= */
+  const isValidEmail = (value) => {
+    const emailRegex =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(value.trim());
+  };
 
   const uploadProfileImage = async (customerId, imageFile) => {
-    try {
-      const imgData = new FormData();
-      imgData.append('customerId', customerId);
-      imgData.append('image', {
-        uri:
-          Platform.OS === 'android'
-            ? imageFile.uri
-            : imageFile.uri.replace('file://', ''),
-        name: imageFile.fileName || 'profile.jpg',
-        type: imageFile.type || 'image/jpeg',
-      });
+    const imgData = new FormData();
 
-      const res = await axios.post(
-        `${api}/customers/change_profile`,
-        imgData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+    const fileName =
+      imageFile.fileName ||
+      `camera_${Date.now()}.jpg`;
 
-      return res.data;
-    } catch (err) {
-      console.log('Image upload error:', err);
-      return null;
-    }
+    const fileType =
+      imageFile.type ||
+      'image/jpeg';
+
+    imgData.append('customerId', customerId);
+    imgData.append('image', {
+      uri:
+        Platform.OS === 'android'
+          ? imageFile.uri
+          : imageFile.uri.replace('file://', ''),
+      name: fileName,
+      type: fileType,
+    });
+
+    const res = await axios.post(
+      `${api}/customers/change_profile`,
+      imgData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+
+    return res.data;
   };
+
+
 
   /* ================= SUBMIT ================= */
 
@@ -170,8 +304,11 @@ const SignUp = ({ navigation, route }) => {
     if (!customerName || !gender || !dateOfBirth || !timeOfBirth || !placeOfBirth) {
       return Alert.alert('Error', 'Please fill all required fields');
     }
-
-    const [firstName, ...rest] = customerName.split(' ');
+    if (email && !isValidEmail(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address");
+      return;
+    }
+    const [firstName, ...rest] = customerName.trim().split(' ');
     const lastName = rest.join(' ');
 
     try {
@@ -194,27 +331,40 @@ const SignUp = ({ navigation, route }) => {
         `${api}/customers/update_profile_intake`,
         payload
       );
-
       if (res.data.success) {
         let updatedProfile = res.data.results;
 
-        if (profileImage?.uri) {
-          const imgRes = await uploadProfileImage(customerId, profileImage);
+        if (pickedImage) {
+          const imgRes = await uploadProfileImage(customerId, pickedImage);
           if (imgRes?.success && imgRes?.image) {
+            const fullImageUrl = `https://alb-web-assets.s3.ap-south-1.amazonaws.com/${imgRes.image}`;
+
             updatedProfile = { ...updatedProfile, image: imgRes.image };
+
+            // 🔥 UPDATE UI IMMEDIATELY
+            setProfileImage({ uri: fullImageUrl });
           }
+
         }
+
 
         await AsyncStorage.setItem(
           'customerData',
           JSON.stringify(updatedProfile)
         );
-
-        Alert.alert('Success', res.data.message);
+        setIsProfileEditing(false)
+        // if (isLogin) {
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' }],
         });
+        // }
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: res.data.message || 'Profile Updated Successfully',
+        });
+
       } else {
         Alert.alert('Error', res.data.message);
       }
@@ -224,11 +374,66 @@ const SignUp = ({ navigation, route }) => {
       setIsLoading(false);
     }
   };
+  const formatDobDisplay = (dob) => {
+    if (!dob) return '';
 
+    const date = new Date(dob);
+    return date.toDateString(); // Fri Dec 19 2025
+  };
   const Required = () => <Text style={{ color: 'red' }}> *</Text>;
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+    <View style={styles.container}>
+      {/* <View style={styles.topEditBar}>
+        <TouchableOpacity
+          onPress={() => setIsProfileEditing(prev => !prev)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name={isProfileEditing ? "check-circle-outline" : "pencil-outline"}
+            size={26}
+            color="#db9a4a"
+          />
+        </TouchableOpacity>
+      </View> */}
+
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }} // 👈 space for fixed button
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* PROFILE AVATAR */}
+        <View style={styles.avatarWrapper}>
+          <View style={styles.avatarContainer}>
+            {profileImage?.uri ? (
+              <Image
+                source={{ uri: profileImage.uri }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="account-circle"
+                size={110}
+                color="#B9B1A8"
+              />
+            )}
+
+            {isProfileEditing &&
+
+              <TouchableOpacity
+                style={styles.cameraIcon}
+                onPress={() => setModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name="camera"
+                  size={20}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            }
+          </View>
+        </View>
 
         {/* Name */}
         <Text style={styles.label}>Full Name<Required /></Text>
@@ -238,30 +443,135 @@ const SignUp = ({ navigation, route }) => {
             value={customerName}
             onChangeText={setCustomerName}
             style={styles.textInput}
+            editable={isProfileEditing}
+
           />
         </View>
 
         {/* Phone (DISABLED) */}
-        <Text style={styles.label}>Phone Number</Text>
+        <Text style={styles.label}>Mobile Number</Text>
         <View style={styles.inputWrapper}>
-          <MaterialCommunityIcons name="phone-outline" size={20} color="#999" />
+          <MaterialCommunityIcons name="phone" size={20} color="#db9a4a" />
+
           <TextInput
             value={phoneNumber}
-            editable={false}
-            style={[styles.textInput, { color: '#777' }]}
+            onChangeText={setPhoneNumber}
+            style={styles.textInput}
+            keyboardType="phone-pad"
+            maxLength={10}
+            editable={isEditingPhone}
           />
+          {isProfileEditing && (
+            !isEditingPhone ? (
+              <TouchableOpacity
+                onPress={() => setIsEditingPhone(true)}
+                style={styles.iconButton}
+              >
+                <MaterialCommunityIcons
+                  name="pencil-outline"
+                  size={20}
+                  color="#db9a4a"
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.inlineOtpButton}
+                onPress={() => sendUpdateOtp("phone")}
+                disabled={loading}
+              >
+                <Text style={styles.inlineOtpText}>
+                  {loading && otpFor === "phone" ? "SENDING..." : "SEND OTP"}
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
 
-        {/* Email (DISABLED) */}
+
+
+
+
         <Text style={styles.label}>Email</Text>
         <View style={styles.inputWrapper}>
-          <MaterialCommunityIcons name="email-outline" size={20} color="#999" />
+          <MaterialCommunityIcons name="email-outline" size={20} color="#db9a4a" />
+
           <TextInput
             value={email}
-            editable={false}
-            style={[styles.textInput, { color: '#777' }]}
+            onChangeText={setEmail}
+            style={styles.textInput}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={isEditingEmail}
           />
+          {isProfileEditing && (
+            !isEditingEmail ? (
+              /* ✏️ EDIT ICON */
+              <TouchableOpacity
+                onPress={() => setIsEditingEmail(true)}
+                style={styles.iconButton}
+              >
+                <MaterialCommunityIcons
+                  name="pencil-outline"
+                  size={20}
+                  color="#db9a4a"
+                />
+              </TouchableOpacity>
+            ) : (
+              /* SEND OTP */
+              <TouchableOpacity
+                style={styles.inlineOtpButton}
+                onPress={() => sendUpdateOtp("email")}
+                disabled={loading}
+              >
+                <Text style={styles.inlineOtpText}>
+                  {loading && otpFor === "email" ? "SENDING..." : "SEND OTP"}
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
+
         </View>
+
+        <Modal
+          isVisible={otpModalVisible}
+          onBackdropPress={() => setOtpModalVisible(false)}
+          onBackButtonPress={() => setOtpModalVisible(false)}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              Verify {otpFor === "email" ? "Email" : "Mobile"}
+            </Text>
+
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="shield-key"
+                size={20}
+                color="#db9a4a"
+              />
+              <TextInput
+                value={otp}
+                onChangeText={setOtp}
+                style={styles.textInput}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="Enter OTP"
+                placeholderTextColor="#8B7355"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={verifyAndUpdate}
+              disabled={loading}
+            >
+              <Text style={styles.submitText}>
+                {loading ? "Verifying..." : "VERIFY & UPDATE"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
+
 
         {/* Gender */}
         <Text style={styles.label}>Gender<Required /></Text>
@@ -269,6 +579,8 @@ const SignUp = ({ navigation, route }) => {
           {['Male', 'Female'].map(g => (
             <TouchableOpacity
               key={g}
+              disabled={!isProfileEditing}
+
               style={[styles.genderButton, gender === g && styles.genderButtonActive]}
               onPress={() => setGender(g)}>
               <Text style={[styles.genderText, gender === g && styles.genderTextActive]}>{g}</Text>
@@ -278,10 +590,10 @@ const SignUp = ({ navigation, route }) => {
 
         {/* DOB */}
         <Text style={styles.label}>Date of Birth<Required /></Text>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputWrapper}>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputWrapper} disabled={!isProfileEditing}>
           <MaterialCommunityIcons name="calendar" size={20} color="#db9a4a" />
           <Text style={styles.textInput}>
-            {dateOfBirth ? moment(dateOfBirth).format('DD MMM YYYY') : 'Select date of birth'}
+            {dateOfBirth ? formatDobDisplay(dateOfBirth) : 'Select date of birth'}
           </Text>
         </TouchableOpacity>
 
@@ -298,7 +610,7 @@ const SignUp = ({ navigation, route }) => {
 
         {/* TOB */}
         <Text style={styles.label}>Time of Birth<Required /></Text>
-        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.inputWrapper}>
+        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.inputWrapper} disabled={!isProfileEditing}>
           <MaterialCommunityIcons name="clock-outline" size={20} color="#db9a4a" />
           <Text style={styles.textInput}>
             {timeOfBirth ? moment(timeOfBirth).format('hh:mm A') : 'Select time of birth'}
@@ -317,20 +629,27 @@ const SignUp = ({ navigation, route }) => {
         )}
 
         {/* Place */}
-        <Text style={styles.label}>Place of Birth<Required /></Text>
-        <View style={styles.inputWrapper}>
-          <PlaceInput
-            onSelect={(loc) => {
-              setPlaceOfBirth(loc.description);
-              setLatitude(loc.latitude);
-              setLongitude(loc.longitude);
-            }}
-            value={placeOfBirth}
-          />
-        </View>
+        <Text style={styles.label}>
+          Place of Birth<Required />
+        </Text>
+
+        <PlaceInput
+          value={placeOfBirth}
+          disabled={!isProfileEditing}
+          containerStyle={styles.inputWrapper}
+          inputStyle={styles.textInput}
+          iconColor="#db9a4a"
+          onSelect={(loc) => {
+            setPlaceOfBirth(loc.description);
+            setLatitude(loc.latitude);
+            setLongitude(loc.longitude);
+          }}
+        />
+
+
 
         {/* Photo */}
-        <Text style={styles.label}>Profile Photo (Optional)</Text>
+        {/* <Text style={styles.label}>Profile Photo (Optional)</Text>
         <TouchableOpacity
           style={styles.selectPhotoButton}
           onPress={() => setModalVisible(true)}>
@@ -340,23 +659,52 @@ const SignUp = ({ navigation, route }) => {
 
         {profileImage && (
           <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
-        )}
+        )} */}
 
         {/* {!isProfile && ( */}
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+
+        {/* )} */}
+      </ScrollView>
+      <View style={styles.fixedFooter}>
+        {isProfileEditing ? (
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              isLoading && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={isLoading}
+            activeOpacity={0.85}
+          >
             <Text style={styles.submitText}>
               {isLoading ? 'Submitting...' : 'SUBMIT'}
             </Text>
           </TouchableOpacity>
-        {/* )} */}
-      </ScrollView>
+        ) : (
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={() => setIsProfileEditing(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.submitText}>EDIT</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+
 
       {/* Modal */}
       <Modal isVisible={modalVisible} onBackdropPress={() => setModalVisible(false)}>
         <View style={styles.modalCard}>
           <TouchableOpacity
             style={styles.modalOption}
-            onPress={() => getProfilePic('capture', { mediaType: 'photo', quality: 1 })}>
+            onPress={() => getProfilePic('capture', {
+              mediaType: 'photo',
+              quality: 0.8,
+              saveToPhotos: true,
+              cameraType: 'back',
+            })
+            }>
             <MaterialCommunityIcons name="camera" size={24} color="#db9a4a" />
             <Text style={styles.modalText}>Take Photo</Text>
           </TouchableOpacity>
@@ -369,7 +717,7 @@ const SignUp = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -380,8 +728,73 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAF8F5' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16 },
   title: { fontSize: 18, fontWeight: '700', color: '#2C1810' },
+  avatarWrapper: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  inlineOtpButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderLeftWidth: 1,
+    borderLeftColor: '#E8E4DC',
+  },
+  topEditBar: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    marginTop: -10
+  },
 
-  label: { fontSize: 14, fontWeight: '700', color: '#2C1810', marginBottom: 4 },
+  inlineOtpText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#db9a4a',
+  },
+
+  avatarContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E8E4DC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#db9a4a',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FAF8F5',
+  },
+
+  label: {
+    marginTop: 16,
+    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2C1810',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
 
   inputWrapper: {
     flexDirection: 'row',
@@ -404,7 +817,23 @@ const styles = StyleSheet.create({
 
   profileImage: { width: width * 0.5, height: width * 0.5, borderRadius: 8, alignSelf: 'center', marginBottom: 20 },
 
-  submitButton: { backgroundColor: '#db9a4a', paddingVertical: 16, borderRadius: 4, alignItems: 'center', marginTop: 10 },
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: '#FAF8F5',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E4DC',
+  },
+
+  submitButton: {
+    backgroundColor: '#db9a4a',
+    paddingVertical: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
   submitText: { color: '#FFFFFF', fontWeight: '700' },
 
   modalCard: { backgroundColor: '#FFFFFF', padding: 20, borderRadius: 6 },

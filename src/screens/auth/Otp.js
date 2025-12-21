@@ -102,32 +102,32 @@ const Otp = (props) => {
           res?.customer.dateOfBirth === '' ||
           res?.customer.timeOfBirth === ''
         ) {
-          Alert.alert('Success', 'Please fill your details!', [
-            {
-              text: 'OK',
-              onPress: () =>
-                navigation.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: 'SignUp',
-                      params: { phoneNumber, customer: res.customer },
-                    },
-                  ],
-                }),
-            },
-          ]);
+          Toast.show({
+            type: "success",
+            text1: "OTP Verified",
+            text2: "Please fill your details!",
+          });
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'SignUp',
+                params: { phoneNumber, customer: res.customer },
+                isLogin: true
+              },
+            ],
+          })
         } else {
           Toast.show({
             type: "success",
-            text1: "OTP Sent!",
-            text2: res.message || "OTP sent successfully!",
+            text1: "OTP Verified!",
+            text2: res.message || "OTP Verified successfully!",
           });
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }],
           })
-           
+
         }
       } else {
         Alert.alert('Error', res.message || 'Verification failed.');

@@ -9,6 +9,8 @@ import {
 import axios from "axios";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AstroTextRenderer from "./auth/components/AstroTextRenderer";
+import api from '../apiConfig';
 
 
 // Custom HTML stripper (enhanced for headings/lists)
@@ -41,7 +43,7 @@ const TermsConditionsScreen = () => {
   const fetchTerms = async () => {
     try {
       const response = await axios.post(
-        "https://api.acharyalavbhushan.com/api/admin/get-terms-condition",
+        `${api}/admin/get-terms-condition`,
         { type: "Customer" },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -63,25 +65,17 @@ const TermsConditionsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Icon name="file-document-outline" size={26} color="#db9a4a" />
-          <Text style={styles.headerTitle}>Terms & Conditions</Text>
-        </View>
-
         {loading ? (
           <ActivityIndicator
             size="large"
             color="#db9a4a"
-            style={{ marginTop: 40 }}
+            style={{ marginTop: 2 }}
           />
         ) : (
-          <View style={styles.textCard}>
-            <Text style={styles.text}>{terms}</Text>
-          </View>
+            <AstroTextRenderer html={terms}/>
         )}
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: 10 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -94,11 +88,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FDF7EE",
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: -4,
   },
   header: {
     backgroundColor: "#FDF7EE",
-
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
@@ -111,7 +104,7 @@ const styles = StyleSheet.create({
   },
   textCard: {
     backgroundColor: "#FFF8ED",
-    padding: 16,
+    padding: 4,
     borderRadius: 12,
     elevation: 1,
   },

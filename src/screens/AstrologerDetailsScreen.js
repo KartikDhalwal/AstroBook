@@ -18,7 +18,7 @@ import IMAGE_BASE_URL from '../imageConfig';
 const AstrologerDetailsScreen = ({ route, navigation, }) => {
   const { astrologer, mode } = route.params;
   const expertiseScrollRef = useRef(null);
-  console.log(astrologer?.consultationPrices, 'consultationPrices')
+  console.log(astrologer, 'astrologer')
   if (!astrologer) {
     return (
       <SafeAreaView style={styles.container}>
@@ -88,18 +88,18 @@ const getImageUrl = (path) => {
           <View style={styles.badgesRow}>
             <View style={styles.ratingContainer}>
               <Text style={styles.ratingText}>
-                ⭐ {astrologer.avg_rating || 'New'}
+                ⭐ {astrologer.rating || 'New'}
               </Text>
             </View>
             <View style={[styles.infoBadge, { backgroundColor: '#E8F5E9' }]}>
               <Text style={[styles.infoBadgeText, { color: '#4CAF50' }]}>
-                {astrologer.experience} Years
+                {astrologer.experience}+ Years
               </Text>
             </View>
           </View>
-          <Text style={styles.location}>
+          {/* <Text style={styles.location}>
             📍 {astrologer.city}, {astrologer.state}
-          </Text>
+          </Text> */}
         </View>
 
         {/* Quick Info */}

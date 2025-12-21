@@ -9,6 +9,8 @@ import {
 import axios from "axios";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AstroTextRenderer from "./auth/components/AstroTextRenderer";
+import api from '../apiConfig';
 
 // Custom HTML stripper
 const stripHTML = (html) => {
@@ -40,7 +42,7 @@ const PrivacyPolicyScreen = () => {
   const fetchPolicy = async () => {
     try {
       const response = await axios.get(
-        "https://api.acharyalavbhushan.com/api/admin/get-privacy-policy"
+        `${api}/admin/get-privacy-policy`
       );
 
       const html = response.data?.privacyPolicy?.description || "";
@@ -60,13 +62,6 @@ const PrivacyPolicyScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <Icon name="shield-account-outline" size={26} color="#db9a4a" />
-          <Text style={styles.headerTitle}>Privacy Policy</Text>
-        </View>
-
         {loading ? (
           <ActivityIndicator
             size="large"
@@ -74,9 +69,10 @@ const PrivacyPolicyScreen = () => {
             style={{ marginTop: 40 }}
           />
         ) : (
-          <View style={styles.textCard}>
-            <Text style={styles.policyText}>{policy}</Text>
-          </View>
+          <AstroTextRenderer html={policy}/>
+          // <View style={styles.textCard}>
+          //   <Text style={styles.policyText}>{policy}</Text>
+          // </View>
         )}
 
         <View style={{ height: 30 }} />
@@ -92,7 +88,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FDF7EE",
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 2,
   },
   header: {
     flexDirection: "row",

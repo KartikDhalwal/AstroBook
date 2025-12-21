@@ -22,6 +22,9 @@ import BottomTabs from "./BottomTabs";
 import { navigationRef } from "../navigation/navigationRef";
 import AstrolgersList from "../screens/AstrolgersList";
 import SelectSlotScreenReschedule from "../screens/SlotDetailsReschedule";
+import CartScreen from "../screens/CartScreen";
+import AstroTalkHome from "../screens/HomeScreen";
+import BookedPoojaListScreen from "../screens/BookedPoojaListScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -52,7 +55,7 @@ export default function AppNavigator() {
         <Stack.Screen
           name="Otp"
           component={OtpScreen}
-          options={{ headerShown: false }}
+          options={{ headerShown: true }}
         />
         <Stack.Screen
           name="UserConsultationList"
@@ -69,6 +72,7 @@ export default function AppNavigator() {
           component={PoojaDetails}
           options={{ headerShown: true, title: 'Pooja Details' }}
         />
+
         <Stack.Screen
           name="AstrologerDetailsScreen"
           component={AstrologerDetailsScreen}
@@ -97,17 +101,17 @@ export default function AppNavigator() {
         <Stack.Screen
           name="UserIncomingCallPopup"
           component={UserIncomingCallPopup}
-          options={{ headerShown: false }}
+          options={{ headerShown: false, title: "Consultation Call" }}
         />
         <Stack.Screen
           name="Free Kundli"
           component={KundliScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: "Free Kundli" }}
         />
         <Stack.Screen
           name="Consultation Details"
           component={ConsultationDetailsScreen}
-          options={{ headerShown: true }}
+          options={{ headerShown: true, title: "Consultation Details" }}
         />
         <Stack.Screen
           name="ChatScreen"
@@ -123,16 +127,32 @@ export default function AppNavigator() {
         <Stack.Screen
           name="TermsConditionsScreen"
           component={TermsConditionsScreen}
-          options={{ headerShown: false, title: 'Terms & Conditions' }} // Tabs have their own screens
+          options={{ headerShown: true, title: 'Terms & Conditions' }} // Tabs have their own screens
         />
         <Stack.Screen
           name="PrivacyPolicyScreen"
           component={PrivacyPolicyScreen}
-          options={{ headerShown: false, title: 'Terms & Conditions' }} // Tabs have their own screens
+          options={{ headerShown: true, title: 'Privacy Policy' }}
+        />
+        <Stack.Screen
+          name="CartScreen"
+          component={CartScreen}
+          options={{ headerShown: true, title: 'Pooja Cart' }}
         />
         <Stack.Screen
           name="VideoList"
           component={props => <AstrolgersList {...props} mode="video" />}
+          options={{ headerShown: true, title: 'Astrologers' }}
+        />
+        <Stack.Screen
+          name="HomeMain"
+          component={AstroTalkHome}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BookedPoojaListScreen"
+          component={BookedPoojaListScreen}
+          options={{ headerShown: true, title: 'Booked Pooja' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -16,6 +16,9 @@ import BlogScreen from '../screens/BlogScreen';
 import ChatScreen from '../screens/ChatScreen';
 import BlogDetailsScreen from '../screens/BlogDetailsScreen';
 import SignUp from '../screens/SignUp';
+import UserConsultationList from '../screens/UserConsultationList';
+import BookedPoojaListScreen from '../screens/BookedPoojaListScreen';
+import CartScreen from '../screens/CartScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -47,12 +50,18 @@ export default function HomeStack() {
       <Stack.Screen name="PoojaList" component={PoojaList} options={{ title: "Book Pooja" }} />
       <Stack.Screen name="PoojaDetails" component={PoojaDetails} options={{ title: "Pooja Details" }} />
       <Stack.Screen name="Free Kundli" component={KundliScreen} options={{ title: "Free Kundlis" }} />
-      <Stack.Screen name="Kundli Details" component={KundliDetailScreen} options={{ title: "Kundli Details" }} />
+      <Stack.Screen name="Kundli Details" component={KundliDetailScreen} options={{ headerShown: true, title: "Kundli Details" }} />
       <Stack.Screen name="Consultation Details" component={ConsultationDetailsScreen} options={{ title: "Kundli Details" }} />
       <Stack.Screen name="About Us" component={AboutUsScreen} options={{ title: "About Us" }} />
       <Stack.Screen name="Blogs" component={BlogScreen} options={{ title: "Blogs" }} />
       <Stack.Screen name="Blog" component={BlogDetailsScreen} options={{ title: "Blog" }} />
       <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: "Connect" }} />
+      <Stack.Screen name="UserConsultationList" component={UserConsultationList} options={{ headerShown: true, title: "My Consultations" }} />
+      <Stack.Screen
+        name="BookedPoojaListScreen"
+        component={BookedPoojaListScreen}
+        options={{ headerShown: true, title: 'Booked Pooja' }}
+      />
       <Stack.Screen
         name="VideoList"
         component={props => <AstrolgersList {...props} mode="video" />}
@@ -61,6 +70,11 @@ export default function HomeStack() {
         name="SignUp"
         component={SignUp}
         options={{ headerShown: true, title: 'Profile' }}
+      />
+      <Stack.Screen
+        name="CartScreen"
+        component={CartScreen}
+        options={{ headerShown: true, title: 'Pooja Cart' }}
       />
     </Stack.Navigator>
   );

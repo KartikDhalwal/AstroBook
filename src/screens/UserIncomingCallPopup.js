@@ -14,7 +14,6 @@ import IMAGE_BASE_URL from "../imageConfig";
 
 export default function UserIncomingCallPopup({ navigation, route }) {
   const { booking, astrologerData, channelName } = route.params || {};
-  console.log(astrologerData, 'astrologerData')
   const isVideo = booking?.consultationType === "videocall";
 
   const pulseAnim = useRef(new Animated.Value(0.9)).current;
@@ -89,7 +88,10 @@ export default function UserIncomingCallPopup({ navigation, route }) {
       InCallManager.stopRingtone();
     } catch (e) { }
     // Vibration.cancel();
-    navigation.goBack();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'UserConsultationList' }],
+    });
   };
 
   return (
@@ -104,7 +106,7 @@ export default function UserIncomingCallPopup({ navigation, route }) {
           <Image
             source={{ uri: getImageUrl(astrologerData.image) }}
             style={styles.avatar}
-          />        
+          />
         </View>
       </Animated.View>
 

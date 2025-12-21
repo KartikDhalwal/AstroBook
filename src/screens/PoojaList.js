@@ -15,13 +15,29 @@ import api from '../apiConfig';
 import MyLoader from '../components/MyLoader';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import MyHeader from '../components/MyHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RefreshControl } from 'react-native';
 
-const PoojaList = () => {
+const PoojaList = ({ route }) => {
+    const { routeMode } = route?.params || {};
+
     const [isLoading, setIsLoading] = useState(false);
     const [pooja, setPooja] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const navigation = useNavigation();
+    const onRefresh = async () => {
+        try {
+            setRefreshing(true);
+            await getPoojaData();
+        } catch (e) {
+            console.log('Refresh error:', e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const getPoojaData = async () => {
         setIsLoading(true);
@@ -57,11 +73,15 @@ const PoojaList = () => {
     const filteredPooja = pooja.filter((item) =>
         item.pujaName.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    const Container = routeMode === false ? View : SafeAreaView;
     return (
-        <View style={styles.container}>
+        <Container
+            style={styles.container}
+            {...(!routeMode ? { edges: ['top'] } : {})}
+        >
             <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
             <MyLoader isVisible={isLoading} />
-
+            {routeMode !== false && <MyHeader />}
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.searchBar}>
@@ -77,7 +97,17 @@ const PoojaList = () => {
             </View>
 
             {/* Pooja List */}
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={['#db9a4a']}     // Android spinner
+                        tintColor="#db9a4a"     // iOS spinner
+                    />
+                }
+            >
                 {filteredPooja.map((item) => (
                     <TouchableOpacity
                         key={item._id}
@@ -108,7 +138,7 @@ const PoojaList = () => {
                     <Text style={styles.noDataText}>No matching Pooja found.</Text>
                 )}
             </ScrollView>
-        </View>
+        </Container>
     );
 };
 
@@ -149,6 +179,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E8DCC8',
     },
+
     searchInput: {
         flex: 1,
         color: '#333',
@@ -164,10 +195,11 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     scrollContent: {
-        marginTop: 10,
+        paddingTop: 10,
         paddingHorizontal: 12,
-        paddingBottom: 30,
+        paddingBottom: 0, // 🔥 critical
     },
+
     card: {
         marginBottom: 16,
         borderRadius: 15,

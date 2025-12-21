@@ -17,15 +17,15 @@ import {
   Keyboard,
   SafeAreaView,
   ImageBackground,
+  Alert
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import io from "socket.io-client";
+import { initSocket, getSocket } from "../services/socket";
+
 
 import api from "../apiConfig";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../config/Screen";
 import IMAGE_BASE_URL from "../imageConfig";
 
-const SOCKET_URL = "https://inventory.sveprajasthan.com";
 const CHAT_HISTORY_PATH = `${api}/mobile/chat`;
 
 // Get dynamic dimensions
@@ -43,9 +43,8 @@ export default function ChatScreen({ route }) {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const userData = routeUser || {
     _id: "user_123",
@@ -56,20 +55,35 @@ export default function ChatScreen({ route }) {
 
   const parseBookingDate = (dateStr) => {
     if (!dateStr) return null;
+
+    // Try native Date parsing first (for "Wed Dec 17 2025")
+    const native = new Date(dateStr);
+    if (!isNaN(native.getTime())) {
+      native.setHours(0, 0, 0, 0);
+      return native;
+    }
+
+    // Fallback: "17 Dec 2025"
     const parts = dateStr.replace(/\s+/g, " ").trim().split(" ");
     if (parts.length !== 3) return null;
+
     const [day, monthStr, year] = parts;
+
     const months = {
       Jan: 0, Feb: 1, Mar: 2, Apr: 3,
       May: 4, Jun: 5, Jul: 6, Aug: 7,
       Sep: 8, Oct: 9, Nov: 10, Dec: 11,
     };
+
     const month = months[monthStr];
     if (month === undefined) return null;
-    return new Date(Number(year), month, Number(day), 0, 0, 0, 0);
+
+    const d = new Date(Number(year), month, Number(day));
+    d.setHours(0, 0, 0, 0);
+    return d;
   };
 
-  const BASE_URL = "https://api.acharyalavbhushan.com/uploads/";
+
   const getImageUrl = (path) => {
     if (!path) return null;
 
@@ -85,6 +99,7 @@ export default function ChatScreen({ route }) {
   const astrologerImg = getImageUrl(astrologer.profileImage);
 
   const checkTimeValidity = (slot, dateStr) => {
+    console.log({ slot, dateStr })
     if (!slot || !dateStr) return false;
     const bookingDay = parseBookingDate(dateStr);
     if (!bookingDay || isNaN(bookingDay.getTime())) return false;
@@ -106,15 +121,32 @@ export default function ChatScreen({ route }) {
     return now >= startTime && now <= endTime;
   };
 
-  useEffect(() => {
-    const validate = () => {
-      const result = checkTimeValidity(timeString, bookingDate);
-      setIsWithinTime(result);
-    };
-    validate();
-    const interval = setInterval(validate, 60000);
-    return () => clearInterval(interval);
-  }, [timeString, bookingDate]);
+useEffect(() => {
+  const validate = () => {
+    const result = checkTimeValidity(timeString, bookingDate);
+
+    // Session JUST ended
+    if (isWithinTime && !result && !sessionEnded) {
+      setSessionEnded(true);
+      setIsWithinTime(false);
+
+      Keyboard.dismiss();
+
+      Alert.alert(
+        "Session Ended",
+        "Your consultation session has been ended.",
+        [{ text: "OK", style: "default" }],
+        { cancelable: false }
+      );
+    }
+
+    setIsWithinTime(result);
+  };
+
+  validate();
+  const interval = setInterval(validate, 30000); // check every 30 sec
+  return () => clearInterval(interval);
+}, [timeString, bookingDate, isWithinTime, sessionEnded]);
 
   const userId = userData._id;
   const astrologerId = astrologer._id;
@@ -125,25 +157,7 @@ export default function ChatScreen({ route }) {
   const typingDotAnim = useRef(new Animated.Value(0)).current;
 
   // Enhanced keyboard handling
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      if (Platform.OS === "android") {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-      setTimeout(scrollToBottom, 150);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (otherTyping) {
@@ -165,14 +179,16 @@ export default function ChatScreen({ route }) {
     initializeSocket();
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      const s = getSocket();
+      if (!s) return;
+
+      s.off("receive_message_normal", onReceiveMessage);
+      s.off("typing");
+      s.off("stopped_typing");
+      s.off("message_delivered_normal");
+      s.off("message_read_normal");
     };
+
   }, []);
 
   const loadChatHistory = async () => {
@@ -182,6 +198,7 @@ export default function ChatScreen({ route }) {
         return;
       }
       const url = `${CHAT_HISTORY_PATH}/${userId}/${astrologerId}`;
+      console.log(url)
       const res = await axios.get(url, { headers: { "Content-Type": "application/json" } });
       const data = res.data;
       if (data && data.success) {
@@ -204,49 +221,45 @@ export default function ChatScreen({ route }) {
   };
 
   const initializeSocket = () => {
-    if (!userId) return;
+    if (!userId || !astrologerId) return;
 
-    socketRef.current = io(SOCKET_URL, {
-      transports: ["websocket"],
-      reconnection: true,
-      query: { userId, user_type: "customer" },
+    const s = initSocket({
+      userId,
+      user_type: "customer",
     });
 
-    socketRef.current.on("connect", () => {
-      setIsConnected(true);
-      socketRef.current.emit("join_normal_chat", { userId, astrologerId });
-    });
+    if (!s.connected) {
+      s.connect();
+    }
 
-    socketRef.current.on("disconnect", () => {
-      setIsConnected(false);
-    });
+    socketRef.current = s;
 
-    socketRef.current.on("receive_message_normal", (message) => {
-      onReceiveMessage(message);
-    });
+    s.emit("join_normal_chat", { userId, astrologerId });
 
-    socketRef.current.on("typing", (data) => {
+    s.on("receive_message_normal", onReceiveMessage);
+
+    s.on("typing", (data) => {
       if (data.userId === astrologerId) setOtherTyping(true);
     });
-    socketRef.current.on("stopped_typing", (data) => {
+
+    s.on("stopped_typing", (data) => {
       if (data.userId === astrologerId) setOtherTyping(false);
     });
 
-    socketRef.current.on("message_delivered_normal", ({ tempId, messageId }) => {
+    s.on("message_delivered_normal", ({ tempId, messageId }) => {
       if (!tempId || !messageId) return;
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, id: messageId, status: "delivered" } : m))
+        prev.map((m) =>
+          m.id === tempId ? { ...m, id: messageId, status: "delivered" } : m
+        )
       );
     });
 
-    socketRef.current.on("message_read_normal", ({ messageId }) => {
+    s.on("message_read_normal", ({ messageId }) => {
       updateMessageStatus(messageId, "read");
     });
-
-    socketRef.current.on("connect_error", (err) => {
-      console.warn("Socket connect_error:", err?.message || err);
-    });
   };
+
 
   const onReceiveMessage = (message) => {
     const formatted = {
@@ -295,8 +308,10 @@ export default function ChatScreen({ route }) {
   };
 
   const handleSendMessage = () => {
-    const trimmed = inputText.trim();
-    if (!trimmed) return;
+  if (!isWithinTime || sessionEnded) return;
+
+  const trimmed = inputText.trim();
+  if (!trimmed) return;
 
     const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const payload = {
@@ -313,19 +328,22 @@ export default function ChatScreen({ route }) {
     setIsTyping(false);
     setTimeout(scrollToBottom, 80);
 
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit("send_message_normal", payload);
-      socketRef.current.emit("stopped_typing", { userId, astrologerId });
+    const s = getSocket();
+    if (s && s.connected) {
+      s.emit("send_message_normal", payload);
+      s.emit("stopped_typing", { userId, astrologerId });
     }
+
   };
 
   const handleTyping = (text) => {
     setInputText(text);
 
-    if (!isTyping && socketRef.current && socketRef.current.connected) {
-      setIsTyping(true);
-      socketRef.current.emit("typing", { userId, astrologerId });
+    const s = getSocket();
+    if (s && s.connected) {
+      s.emit("typing", { userId, astrologerId });
     }
+
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -416,7 +434,7 @@ export default function ChatScreen({ route }) {
             <Image source={{ uri: astrologerImg }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarText}>{(astrologer.astrologerName || "A")[0].toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{(astrologer.astrologerName || astrologer.name || "A")[0].toUpperCase()}</Text>
             </View>
           )}
         </View>
@@ -446,11 +464,11 @@ export default function ChatScreen({ route }) {
             {astrologer.status === "online" && <View style={styles.onlineIndicator} />}
           </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.headerName} numberOfLines={1}>{astrologer.astrologerName || "Astrologer"}</Text>
-            <View style={styles.statusRow}>
+            <Text style={styles.headerName} numberOfLines={1}>{astrologer.astrologerName || routeAstrologer.name || "Astrologer"}</Text>
+            {/* <View style={styles.statusRow}>
               <View style={[styles.statusDot, isConnected ? styles.statusConnected : styles.statusDisconnected]} />
               <Text style={styles.headerStatus}>{otherTyping ? "typing..." : astrologer.status === "online" ? "Active now" : "Offline"}</Text>
-            </View>
+            </View> */}
           </View>
         </View>
       </View>
@@ -468,16 +486,16 @@ export default function ChatScreen({ route }) {
         {renderHeader()}
 
         <KeyboardAvoidingView
-          style={styles.keyboardView}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 70}
         >
           {/* <View style={styles.messagesContainer}> */}
-            <ImageBackground
-          source={require("../assets/images/logoBlack.png")}
-          style={styles.messagesContainer}
-          imageStyle={styles.watermark}
-        >
+          <ImageBackground
+            source={require("../assets/images/logoBlack.png")}
+            style={styles.messagesContainer}
+            imageStyle={styles.watermark}
+          >
             {loadingHistory ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#db9a4a" />
@@ -497,42 +515,39 @@ export default function ChatScreen({ route }) {
             )}
           </ImageBackground>
 
-          <View style={[
-            styles.inputContainer,
-            Platform.OS === "android" && keyboardHeight > 0 && {
-              position: 'absolute',
-              bottom: keyboardHeight,
-              left: 0,
-              right: 0,
-            }
-          ]}>
+          <View style={styles.inputContainer}>
             <View style={styles.inputShadow}>
               <View style={styles.inputWrapper}>
                 <View style={styles.inputBox}>
                   <TextInput
                     style={styles.input}
-                    placeholder={
-                      isWithinTime
-                        ? "Type your message..."
-                        : "Chat will be enabled in your session"
-                    }
+                     placeholder={
+    sessionEnded
+      ? "Your session has ended"
+      : isWithinTime
+      ? "Type your message..."
+      : "Chat will be enabled in your session"
+  }
                     placeholderTextColor="#9CA3AF"
                     value={inputText}
-                    onChangeText={isWithinTime ? handleTyping : undefined}
-                    editable={isWithinTime}
+  onChangeText={isWithinTime && !sessionEnded ? handleTyping : undefined}
+  editable={isWithinTime && !sessionEnded}
                     multiline
+                    scrollEnabled
+                    textAlignVertical="top"
                     maxLength={1000}
                   />
                 </View>
                 <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    (!inputText.trim() || !isWithinTime) && styles.sendButtonDisabled
-                  ]}
-                  onPress={handleSendMessage}
-                  disabled={!inputText.trim() || !isWithinTime}
-                  activeOpacity={0.85}
-                >
+  style={[
+    styles.sendButton,
+    (!inputText.trim() || !isWithinTime || sessionEnded) &&
+      styles.sendButtonDisabled
+  ]}
+  onPress={handleSendMessage}
+  disabled={!inputText.trim() || !isWithinTime || sessionEnded}
+>
+
                   <Icon name="send" size={moderateScale(20)} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -645,7 +660,7 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1
   },
-    watermark: { opacity: 0.06, resizeMode: "fill" },
+  watermark: { opacity: 0.06, resizeMode: "fill" },
 
   loadingContainer: {
     flex: 1,
@@ -662,7 +677,7 @@ const styles = StyleSheet.create({
   messagesList: {
     paddingHorizontal: scale(16),
     paddingTop: verticalScale(16),
-    paddingBottom: Platform.OS === "android" ? verticalScale(100) : verticalScale(20)
+    paddingBottom: verticalScale(20),
   },
 
   messageContainer: {
@@ -817,7 +832,7 @@ const styles = StyleSheet.create({
     paddingVertical: verticalScale(4),
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    marginBottom:24
+    marginBottom: 24
   },
   inputBox: {
     flex: 1,

@@ -12,8 +12,25 @@ import { navigate, navigationRef } from './src/navigation/navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import api from './src/apiConfig';
+import { CommonActions } from '@react-navigation/native';
 
 LogBox.ignoreLogs(['Setting a timer']);
+async function requestNotificationPermission() {
+  try {
+    // iOS & Android (Firebase handles platform differences)
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    // Required for iOS 13+ (Notifee)
+    await notifee.requestPermission();
+
+    console.log('🔔 Notification permission:', enabled ? 'GRANTED' : 'DENIED');
+  } catch (err) {
+    console.log('❌ Notification permission error:', err);
+  }
+}
 
 async function createCallChannel() {
   await notifee.createChannel({
@@ -26,6 +43,10 @@ async function createCallChannel() {
 
 export default function App() {
   const initialNotificationHandled = useRef(false);
+  useEffect(() => {
+    requestNotificationPermission(); // 👈 ask permission on app start
+    createCallChannel();             // existing call channel
+  }, []);
 
   // 🔹 SAVE NOTIFICATION TO DB
   const saveNotificationToDB = async (remoteMessage) => {
@@ -55,11 +76,21 @@ export default function App() {
       await saveNotificationToDB(msg);
 
       if (msg.data?.type === 'incoming_call') {
-        navigate('UserIncomingCallPopup', {
-          booking: JSON.parse(msg.data.booking),
-          astrologerData: JSON.parse(msg.data.astrologerData),
-          channelName: msg.data.channelName,
-        });
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'UserIncomingCallPopup',
+                params: {
+                  booking: JSON.parse(msg.data.booking),
+                  astrologerData: JSON.parse(msg.data.astrologerData),
+                  channelName: msg.data.channelName,
+                },
+              },
+            ],
+          })
+        );
       }
     });
 
@@ -69,11 +100,21 @@ export default function App() {
         await saveNotificationToDB(remoteMessage);
 
         if (remoteMessage?.data?.type === 'incoming_call') {
-          navigate('UserIncomingCallPopup', {
-            booking: JSON.parse(remoteMessage.data.booking),
-            astrologerData: JSON.parse(remoteMessage.data.astrologerData),
-            channelName: remoteMessage.data.channelName,
-          });
+          navigationRef.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'UserIncomingCallPopup',
+                  params: {
+                    booking: JSON.parse(remoteMessage.data.booking),
+                    astrologerData: JSON.parse(remoteMessage.data.astrologerData),
+                    channelName: remoteMessage.data.channelName,
+                  },
+                },
+              ],
+            })
+          );
         }
       }
     );
@@ -82,28 +123,34 @@ export default function App() {
     messaging()
       .getInitialNotification()
       .then(async remoteMessage => {
-        if (
-          remoteMessage &&
-          !initialNotificationHandled.current
-        ) {
-          initialNotificationHandled.current = true;
+        if (!remoteMessage || initialNotificationHandled.current) return;
 
-          await saveNotificationToDB(remoteMessage);
+        initialNotificationHandled.current = true;
+        await saveNotificationToDB(remoteMessage);
 
-          const interval = setInterval(() => {
-            if (navigationRef.isReady()) {
-              clearInterval(interval);
+        const interval = setInterval(() => {
+          if (!navigationRef.isReady()) return;
 
-              if (remoteMessage.data?.type === 'incoming_call') {
-                navigate('UserIncomingCallPopup', {
-                  booking: JSON.parse(remoteMessage.data.booking),
-                  astrologerData: JSON.parse(remoteMessage.data.astrologerData),
-                  channelName: remoteMessage.data.channelName,
-                });
-              }
-            }
-          }, 100);
-        }
+          clearInterval(interval);
+
+          if (remoteMessage.data?.type === 'incoming_call') {
+            navigationRef.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'UserIncomingCallPopup',
+                    params: {
+                      booking: JSON.parse(remoteMessage.data.booking),
+                      astrologerData: JSON.parse(remoteMessage.data.astrologerData),
+                      channelName: remoteMessage.data.channelName,
+                    },
+                  },
+                ],
+              })
+            );
+          }
+        }, 100);
       });
 
     return () => {

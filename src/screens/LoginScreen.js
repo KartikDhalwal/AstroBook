@@ -9,6 +9,9 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import MyStatusBar from "../components/MyStatusbar";
 import MyLoader from "../components/MyLoader";
@@ -23,7 +26,14 @@ import { colors } from "../config/Constants1";
 import api from "./../apiConfig";
 import axios from "axios";
 import Toast from "react-native-toast-message";
+import { SafeAreaView } from "react-native-safe-area-context";
+const { width, height } = Dimensions.get("window");
 
+const guidelineBaseWidth = 375;
+const scale = (size) => (width / guidelineBaseWidth) * size;
+
+const isSmallDevice = width < 360;
+const isTablet = width >= 768;
 const LoginScreen = (props) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -133,207 +143,257 @@ const LoginScreen = (props) => {
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <MyStatusBar backgroundColor={colors.statusBarBg} barStyle="dark-content" />
-      <MyLoader isVisible={isLoading} />
+return (
+  <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+    <MyStatusBar
+      backgroundColor={colors.statusBarBg}
+      barStyle="dark-content"
+    />
 
-      {/* TOP LOGO */}
-      <View style={styles.logoView}>
-        <Image
-          source={require("../assets/images/newLogo.png")}
-          style={styles.loginLogo}
-        />
-        <Text style={styles.loginImageText1}>
-          <TranslateText title="AstroBook" />
-        </Text>
-        <Text style={styles.loginImageText}>
-          <TranslateText title="Your Astrology Search Ends Here" />
-        </Text>
-      </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <MyLoader isVisible={isLoading} />
 
-      {/* LOGIN SWITCH TABS */}
-      <Text style={[styles.loginSignupText]}>
+        {/* TOP LOGO */}
+        <View style={styles.logoView}>
+          <Image
+            source={require("../assets/images/newLogo.png")}
+            style={styles.loginLogo}
+          />
 
-        <TranslateText title="Logging in Globally? Choose Email Login" />
-      </Text>
-      <View style={styles.switchRow}>
-
-        <TouchableOpacity
-          onPress={() => setLoginType("phone")}
-          style={[
-            styles.switchBtn,
-            loginType === "phone" && styles.activeSwitch,
-          ]}
-        >
-          <Text
-            style={[
-              styles.switchText,
-              loginType === "phone" && styles.activeSwitchText,
-            ]}
-          >
-            Phone Login
+          <Text style={styles.loginImageText1} allowFontScaling={false}>
+            <TranslateText title="AstroBook" />
           </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setLoginType("email")}
-          style={[
-            styles.switchBtn,
-            loginType === "email" && styles.activeSwitch,
-          ]}
-        >
-          <Text
-            style={[
-              styles.switchText,
-              loginType === "email" && styles.activeSwitchText,
-            ]}
-          >
-            Email Login
+          <Text style={styles.loginImageText} allowFontScaling={false}>
+            <TranslateText title="Your Astrology Search Ends Here" />
           </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.inputView}>
-        {/* ------------------------ PHONE UI ------------------------ */}
-        {loginType === "phone" && (
-          <>
-            <View style={styles.phoneInputWrapper}>
-              <Text style={styles.callingCodeText}>+{callingCode}</Text>
-
-              <TextInput
-                value={phoneNumber}
-                onChangeText={(text) => {
-                  if (/^\d{0,10}$/.test(text)) setPhoneNumber(text);
-                }}
-                keyboardType="number-pad"
-                placeholder="Phone Number"
-                style={styles.phoneTextInput}
-              />
-            </View>
-
-            <TouchableOpacity style={styles.loginBtn} onPress={loginWithPhone}>
-              <Text />
-              <Text style={styles.loginText}>
-                <TranslateText title="GET OTP" />
-              </Text>
-              <LoginArrow />
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ------------------------ EMAIL UI ------------------------ */}
-        {loginType === "email" && (
-          <>
-            <View style={styles.phoneInputWrapper}>
-              <Ionicons name="mail-outline" size={20} color="#444" />
-              <TextInput
-                value={email}
-                onChangeText={(t) => setEmail(t)}
-                placeholder="Enter Email"
-                style={styles.phoneTextInput}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <TouchableOpacity style={styles.loginBtn} onPress={loginWithEmail}>
-              <Text />
-              <Text style={styles.loginText}>GET EMAIL OTP</Text>
-              <LoginArrow />
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Disclaimer */}
-        <Text style={styles.loginSignupText}>
-          By signing up, you agree to our{" "}
-          <Text
-            style={styles.linkText}
-            onPress={() => props.navigation.navigate("TermsConditionsScreen")}
-          >
-            Terms of Use{" "}
-          </Text>
-          and{" "}
-          <Text
-            style={styles.linkText}
-            onPress={() => props.navigation.navigate("PrivacyPolicyScreen")}
-          >
-            Privacy Policy
-          </Text>
-        </Text>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>50K+</Text>
-            <Text style={styles.statLabel}>Consultations</Text>
-          </View>
-
-          <View style={styles.separator} />
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>100%</Text>
-            <Text style={styles.statLabel}>Privacy</Text>
-          </View>
-
-          <View style={styles.separator} />
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>20+</Text>
-            <Text style={styles.statLabel}>Years of Exp.</Text>
-          </View>
-
         </View>
 
-      </View>
-    </ScrollView>
-  );
+        {/* LOGIN SWITCH INFO */}
+        <Text style={styles.loginSignupText} allowFontScaling={false}>
+          <TranslateText title="Logging in Globally? Choose Email Login" />
+        </Text>
+
+        {/* SWITCH TABS */}
+        <View style={styles.switchRow}>
+          <TouchableOpacity
+            onPress={() => setLoginType("phone")}
+            style={[
+              styles.switchBtn,
+              loginType === "phone" && styles.activeSwitch,
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.switchText,
+                loginType === "phone" && styles.activeSwitchText,
+              ]}
+              allowFontScaling={false}
+            >
+              Phone Login
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setLoginType("email")}
+            style={[
+              styles.switchBtn,
+              loginType === "email" && styles.activeSwitch,
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.switchText,
+                loginType === "email" && styles.activeSwitchText,
+              ]}
+              allowFontScaling={false}
+            >
+              Email Login
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* INPUT AREA */}
+        <View style={styles.inputView}>
+          {loginType === "phone" && (
+            <>
+              <View style={styles.phoneInputWrapper}>
+                <Text style={styles.callingCodeText} allowFontScaling={false}>
+                  +{callingCode}
+                </Text>
+
+                <TextInput
+                  value={phoneNumber}
+                  onChangeText={(text) => {
+                    if (/^\d{0,10}$/.test(text)) setPhoneNumber(text);
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="Phone Number"
+                  style={styles.phoneTextInput}
+                  maxLength={10}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.loginBtn}
+                onPress={loginWithPhone}
+                activeOpacity={0.8}
+              >
+                <Text />
+                <Text style={styles.loginText} allowFontScaling={false}>
+                  <TranslateText title="GET OTP" />
+                </Text>
+                <LoginArrow />
+              </TouchableOpacity>
+            </>
+          )}
+
+          {loginType === "email" && (
+            <>
+              <View style={styles.phoneInputWrapper}>
+                <Ionicons name="mail-outline" size={scale(18)} color="#444" />
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter Email"
+                  style={styles.phoneTextInput}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.loginBtn}
+                onPress={loginWithEmail}
+                activeOpacity={0.8}
+              >
+                <Text />
+                <Text style={styles.loginText} allowFontScaling={false}>
+                  GET EMAIL OTP
+                </Text>
+                <LoginArrow />
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* DISCLAIMER */}
+          <Text style={styles.loginSignupText} allowFontScaling={false}>
+            By signing up, you agree to our{" "}
+            <Text
+              style={styles.linkText}
+              onPress={() =>
+                props.navigation.navigate("TermsConditionsScreen")
+              }
+            >
+              Terms of Use
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={styles.linkText}
+              onPress={() =>
+                props.navigation.navigate("PrivacyPolicyScreen")
+              }
+            >
+              Privacy Policy
+            </Text>
+          </Text>
+
+          {/* STATS */}
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber} allowFontScaling={false}>
+                50K+
+              </Text>
+              <Text style={styles.statLabel} allowFontScaling={false}>
+                Consultations
+              </Text>
+            </View>
+
+            <View style={styles.separator} />
+
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber} allowFontScaling={false}>
+                100%
+              </Text>
+              <Text style={styles.statLabel} allowFontScaling={false}>
+                Privacy
+              </Text>
+            </View>
+
+            <View style={styles.separator} />
+
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber} allowFontScaling={false}>
+                10+
+              </Text>
+              <Text style={styles.statLabel} allowFontScaling={false}>
+                Years of Exp.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  </SafeAreaView>
+);
+
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  scrollContainer: {
+    paddingBottom: scale(30),
+  },
 
   logoView: {
-    justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#db9a4a",
-    paddingBottom: 15,
-    paddingTop: 40,
+    paddingTop: scale(40),
+    paddingBottom: scale(20),
   },
 
   loginLogo: {
-    width: SCREEN_WIDTH * 0.7,
-    height: SCREEN_WIDTH * 0.4,
+    width: width * 0.6,
+    height: width * 0.35,
     resizeMode: "contain",
   },
 
   loginImageText1: {
-    color: "#000",
-    ...Fonts.primaryHelvetica,
-    fontSize: 50,
+    fontSize: isTablet ? scale(42) : scale(32),
     fontWeight: "700",
+    color: "#000",
   },
 
   loginImageText: {
+    fontSize: scale(14),
+    fontWeight: "600",
     color: "#000",
-    ...Fonts.primaryHelvetica,
-    fontSize: 18,
-    fontWeight: "700",
+    marginTop: scale(4),
   },
 
   switchRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-    marginHorizontal: 20,
+    marginTop: scale(20),
+    marginHorizontal: scale(16),
   },
 
   switchBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: scale(12),
+    borderRadius: scale(8),
     backgroundColor: "#eee",
-    borderRadius: 8,
-    marginHorizontal: 5,
+    marginHorizontal: scale(4),
+    minHeight: scale(44),
+    justifyContent: "center",
   },
 
   activeSwitch: {
@@ -342,7 +402,7 @@ const styles = StyleSheet.create({
 
   switchText: {
     textAlign: "center",
-    fontSize: 15,
+    fontSize: scale(14),
     color: "#555",
   },
 
@@ -351,96 +411,88 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  inputView: { paddingHorizontal: 15, marginTop: 25 },
+  inputView: {
+    paddingHorizontal: scale(16),
+    marginTop: scale(25),
+  },
 
   phoneInputWrapper: {
     flexDirection: "row",
+    alignItems: "center",
     borderBottomWidth: 1,
     borderColor: "#ccc",
-    paddingVertical: 10,
-    alignItems: "center",
+    paddingVertical: scale(10),
   },
 
-  callingCodeText: { fontSize: 16 },
+  callingCodeText: {
+    fontSize: scale(16),
+  },
 
   phoneTextInput: {
     flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-  },
-
-  emailWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 8,
-    borderColor: "#ccc",
-  },
-
-  emailInput: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 16,
+    marginLeft: scale(10),
+    fontSize: scale(16),
+    paddingVertical: Platform.OS === "android" ? 0 : scale(6),
   },
 
   loginBtn: {
     backgroundColor: "#db9a4a",
-    borderRadius: 100,
+    borderRadius: scale(30),
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginTop: 25,
+    justifyContent: "space-between",
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(20),
+    marginTop: scale(24),
+    minHeight: scale(48),
   },
 
   loginText: {
     color: "#fff",
-    ...Fonts.primaryHelvetica,
+    fontSize: scale(16),
     fontWeight: "600",
-    fontSize: 16,
   },
 
   loginSignupText: {
-    color: "#000",
     textAlign: "center",
-    marginTop: 20,
+    marginTop: scale(20),
+    fontSize: scale(13),
+    color: "#000",
   },
 
   linkText: {
     textDecorationLine: "underline",
   },
 
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#db9a4a",
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: "#444",
-  },
   statsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 30
+    marginTop: scale(30),
   },
 
   statBox: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 5,
+  },
+
+  statNumber: {
+    fontSize: scale(18),
+    fontWeight: "700",
+    color: "#db9a4a",
+  },
+
+  statLabel: {
+    fontSize: scale(12),
+    color: "#444",
+    marginTop: scale(2),
   },
 
   separator: {
     width: 1,
-    height: "60%", // adjust height if needed
+    height: "60%",
     backgroundColor: "#e5caa0",
   },
-
 });
+
 
 export default LoginScreen;

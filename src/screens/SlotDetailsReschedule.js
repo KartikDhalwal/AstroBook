@@ -39,22 +39,22 @@ const SelectSlotScreenReschedule = ({ route }) => {
   const [enabledDates, setEnabledDates] = useState([]);
 
   /* ---------------- FETCH ASTROLOGER ---------------- */
-useEffect(() => {
-  if (!astrolger?.consultationPrices || !booking?.duration) return;
+  useEffect(() => {
+    if (!astrolger?.consultationPrices || !booking?.duration) return;
 
-  const prices = [...astrolger.consultationPrices].sort(
-    (a, b) => a.duration.slotDuration - b.duration.slotDuration
-  );
+    const prices = [...astrolger.consultationPrices].sort(
+      (a, b) => a.duration.slotDuration - b.duration.slotDuration
+    );
 
-  setConsultationPrices(prices);
+    setConsultationPrices(prices);
 
-  // 🔒 lock duration from booking
-  const bookedDuration = prices.find(
-    p => p.duration.slotDuration === booking?.duration
-  );
+    // 🔒 lock duration from booking
+    const bookedDuration = prices.find(
+      p => p.duration.slotDuration === booking?.duration
+    );
 
-  setSelectedDuration(bookedDuration || prices[0]);
-}, [astrolger, booking]);
+    setSelectedDuration(bookedDuration || prices[0]);
+  }, [astrolger, booking]);
 
   const fetchAstrologerDetails = async (astroId) => {
     setIsLoading(true);
@@ -97,11 +97,11 @@ useEffect(() => {
 
   /* ---------------- ENABLED DATES ---------------- */
 
-useEffect(() => {
-  if (selectedDuration && booking) {
-    fetchSlotDatesByDuration(selectedDuration);
-  }
-}, [selectedDuration, booking]);
+  useEffect(() => {
+    if (selectedDuration && booking) {
+      fetchSlotDatesByDuration(selectedDuration);
+    }
+  }, [selectedDuration, booking]);
 
 
   const fetchSlotDatesByDuration = async (durationItem) => {
@@ -291,36 +291,47 @@ useEffect(() => {
                 { type: "voice", icon: "phone", label: "Voice Call" },
                 { type: "videocall", icon: "video", label: "Video Call" },
                 { type: "chat", icon: "chat", label: "Chat" },
-              ].map((item, index) => (
-                <TouchableOpacity
-  key={index}
-  style={[
-    styles.modeCard,
-    selectedMode === item.type && styles.selectedModeCard,
-    styles.disabledCard
-  ]}
-  disabled={true}
-  activeOpacity={1}
->
+              ].map((item, index) => {
+                const isSelected = selectedMode === item.type;
+                const isDisabled = selectedMode && !isSelected; // 🔒 lock others
 
-                  <View style={[
-                    styles.modeIconContainer,
-                    selectedMode === item.type && styles.selectedIconContainer
-                  ]}>
-                    <Icon
-                      name={item.icon}
-                      size={24}
-                      color={selectedMode === item.type ? "#fff" : "#db9a4a"}
-                    />
-                  </View>
-                  <Text style={[
-                    styles.modeText,
-                    selectedMode === item.type && styles.selectedModeText
-                  ]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.modeCard,
+                      isSelected && styles.selectedModeCard,
+                      isDisabled && styles.disabledCard,
+                    ]}
+                    disabled={isDisabled}
+                    activeOpacity={isDisabled ? 1 : 0.7}
+                  >
+                    <View
+                      style={[
+                        styles.modeIconContainer,
+                        isSelected && styles.selectedIconContainer,
+                      ]}
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={24}
+                        color={isSelected ? "#fff" : "#db9a4a"}
+                      />
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.modeText,
+                        isSelected && styles.selectedModeText,
+                        isDisabled && styles.disabledText,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
             </View>
           </View>
 
@@ -332,40 +343,53 @@ useEffect(() => {
             </View>
 
             <View style={styles.durationRow}>
-              {consultationPrices.map((item, index) => (
-                <TouchableOpacity
-  key={index}
-  style={[
-    styles.durationCard,
-    selectedDuration?._id === item._id && styles.selectedDurationCard,
-    styles.disabledCard
-  ]}
-  disabled={true}
-  activeOpacity={1}
->
+              {consultationPrices.map((item, index) => {
+  const isSelected = selectedDuration?._id === item._id;
+  const isDisabled = selectedDuration && !isSelected; // 🔒 lock others
 
-                  <View style={styles.durationContent}>
-                    <Text style={[
-                      styles.durationText,
-                      selectedDuration?._id === item._id && styles.selectedDurationText
-                    ]}>
-                      {item.duration.slotDuration}
-                    </Text>
-                    <Text style={styles.durationUnit}>minutes</Text>
-                  </View>
-                  <View style={[
-                    styles.priceBadge,
-                    selectedDuration?._id === item._id && styles.selectedPriceBadge
-                  ]}>
-                    <Text style={[
-                      styles.priceText,
-                      selectedDuration?._id === item._id && styles.selectedPriceText
-                    ]}>
-                      ₹{item.price}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+  return (
+    <TouchableOpacity
+      key={index}
+      style={[
+        styles.durationCard,
+        isSelected && styles.selectedDurationCard,
+        isDisabled && styles.disabledCard,
+      ]}
+      disabled={isDisabled}
+      activeOpacity={isDisabled ? 1 : 0.7}
+    >
+      <View style={styles.durationContent}>
+        <Text
+          style={[
+            styles.durationText,
+            isSelected && styles.selectedDurationText,
+            isDisabled && styles.disabledText,
+          ]}
+        >
+          {item.duration.slotDuration}
+        </Text>
+        <Text style={styles.durationUnit}>minutes</Text>
+      </View>
+
+      <View
+        style={[
+          styles.priceBadge,
+          isSelected && styles.selectedPriceBadge,
+        ]}
+      >
+        <Text
+          style={[
+            styles.priceText,
+            isSelected && styles.selectedPriceText,
+          ]}
+        >
+          ₹{item.price}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+})}
+
             </View>
           </View>
 
@@ -710,6 +734,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF9F0",
     borderColor: "#db9a4a",
   },
+disabledCard: {
+  opacity: 0.45,
+  backgroundColor: "#F3F3F3",
+},
+
+disabledText: {
+  color: "#999",
+},
 
   modeIconContainer: {
     width: 48,

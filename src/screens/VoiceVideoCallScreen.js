@@ -228,11 +228,26 @@ export default function VoiceVideoCallScreen({ navigation, route }) {
     setIsMuted(!isMuted);
   };
 
-  const toggleSpeaker = () => {
-    if (!agoraEngine) return;
-    agoraEngine.setEnableSpeakerphone(!isSpeakerOn);
-    setIsSpeakerOn(!isSpeakerOn);
-  };
+const toggleSpeaker = async () => {
+  if (!agoraEngine) return;
+
+  const enable = !isSpeakerOn;
+
+  try {
+    // Force route
+    await agoraEngine.setEnableSpeakerphone(enable);
+
+    // Extra safety: reset audio route
+    if (Platform.OS === 'android') {
+      agoraEngine.enableAudio();
+    }
+
+    setIsSpeakerOn(enable);
+  } catch (err) {
+    console.warn('Speaker toggle failed', err);
+  }
+};
+
 
   const toggleVideo = async () => {
     if (!agoraEngine) return;
@@ -309,10 +324,10 @@ export default function VoiceVideoCallScreen({ navigation, route }) {
             <TouchableOpacity onPress={toggleSpeaker} style={[styles.videoControlBtn, isSpeakerOn && styles.videoActiveControl]}>
               <Icon name={isSpeakerOn ? 'volume-high' : 'volume-medium'} size={26} color="#FFFFFF" />
             </TouchableOpacity>
-
             <TouchableOpacity onPress={endCall} style={styles.videoEndCallBtn}>
               <Icon name="phone-hangup" size={30} color="#FFFFFF" />
             </TouchableOpacity>
+
           </View>
         </View>
       ) : (
