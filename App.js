@@ -15,6 +15,58 @@ import api from './src/apiConfig';
 import { CommonActions } from '@react-navigation/native';
 
 LogBox.ignoreLogs(['Setting a timer']);
+async function checkCustomerDetails() {
+  try {
+    const raw = await AsyncStorage.getItem('customerData');
+
+    if (!raw) {
+      redirectToSignup();
+      return;
+    }
+
+    let customer;
+    try {
+      customer = JSON.parse(raw);
+    } catch {
+      redirectToSignup();
+      return;
+    }
+
+    const requiredFields = [
+      'customerName',
+      'phoneNumber',
+      'gender',
+      'dateOfBirth',
+      'timeOfBirth',
+    ];
+
+    const isInvalid = requiredFields.some(
+      key => !customer?.[key] || String(customer[key]).trim() === ''
+    );
+
+    if (isInvalid) {
+      redirectToSignup();
+    }
+  } catch (error) {
+    console.log('❌ Customer check failed:', error);
+    redirectToSignup();
+  }
+}
+
+function redirectToSignup() {
+  if (!navigationRef.isReady()) {
+    setTimeout(redirectToSignup, 100);
+    return;
+  }
+
+  navigationRef.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [{ name: 'SignUp' }],
+    })
+  );
+}
+
 async function requestNotificationPermission() {
   try {
     // iOS & Android (Firebase handles platform differences)
@@ -158,6 +210,13 @@ export default function App() {
       unsubscribeOpened();
     };
   }, []);
+useEffect(() => {
+  const bootstrap = async () => {
+    await checkCustomerDetails();
+  };
+
+  bootstrap();
+}, []);
 
   return (
     <>

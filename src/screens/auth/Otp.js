@@ -89,7 +89,6 @@ const Otp = (props) => {
       );
 
       const res = response.data;
-      console.log('Response:', res);
 
       if (res.success) {
         await AsyncStorage.setItem('customerData', JSON.stringify(res.customer));

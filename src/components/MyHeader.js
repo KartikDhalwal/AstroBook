@@ -682,17 +682,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-
   avatarWrapper: {
     position: 'relative',
   },
-
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: 21,
+    borderRadius: 42,
   },
-
   avatarBadge: {
     position: 'absolute',
     bottom: 0,

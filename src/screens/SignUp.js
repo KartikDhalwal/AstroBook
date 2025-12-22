@@ -301,7 +301,7 @@ const SignUp = ({ navigation, route }) => {
   /* ================= SUBMIT ================= */
 
   const handleSubmit = async () => {
-    if (!customerName || !gender || !dateOfBirth || !timeOfBirth || !placeOfBirth) {
+    if (!customerName || !gender || !dateOfBirth || !timeOfBirth || !placeOfBirth || !phoneNumber) {
       return Alert.alert('Error', 'Please fill all required fields');
     }
     if (email && !isValidEmail(email)) {
@@ -449,10 +449,9 @@ const SignUp = ({ navigation, route }) => {
         </View>
 
         {/* Phone (DISABLED) */}
-        <Text style={styles.label}>Mobile Number</Text>
+        <Text style={styles.label}>Mobile Number<Required /></Text>
         <View style={styles.inputWrapper}>
           <MaterialCommunityIcons name="phone" size={20} color="#db9a4a" />
-
           <TextInput
             value={phoneNumber}
             onChangeText={setPhoneNumber}
