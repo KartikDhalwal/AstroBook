@@ -5,7 +5,6 @@ import HoroscopeDetailScreen from '../screens/HoroscopeDetailScreen';
 import KundliMatchingScreen from '../screens/KundliMatchingScreen';
 import KundliMatchingReportScreen from '../screens/KundliMatchingReportScreen';
 import AstrolgersList from '../screens/AstrolgersList';
-import AstrologerDetailsScreen from '../screens/AstrologerDetailsScreen';
 import PoojaList from '../screens/PoojaList';
 import PoojaDetails from '../screens/PoojaDetails';
 import KundliScreen from '../screens/KundliScreen';
@@ -46,16 +45,15 @@ export default function HomeStack() {
       <Stack.Screen name="KundliMatchingScreen" component={KundliMatchingScreen} options={{ title: "Kundli Matching" }} />
       <Stack.Screen name="KundliMatchingReportScreen" component={KundliMatchingReportScreen} options={{ title: "Match Report" }} />
       <Stack.Screen name="AstrolgersList" component={AstrolgersList} options={{ title: "Astrologers" }} />
-      <Stack.Screen name="AstrologerDetailsScreen" component={AstrologerDetailsScreen} options={{ title: "Astrologer" }} />
       <Stack.Screen name="PoojaList" component={PoojaList} options={{ title: "Book Pooja" }} />
       <Stack.Screen name="PoojaDetails" component={PoojaDetails} options={{ title: "Pooja Details" }} />
       <Stack.Screen name="Free Kundli" component={KundliScreen} options={{ title: "Free Kundlis" }} />
       <Stack.Screen name="Kundli Details" component={KundliDetailScreen} options={{ headerShown: true, title: "Kundli Details" }} />
-      <Stack.Screen name="Consultation Details" component={ConsultationDetailsScreen} options={{ title: "Kundli Details" }} />
+      <Stack.Screen name="Consultation Details" component={ConsultationDetailsScreen} options={{ title: "Consultation Details" }} />
       <Stack.Screen name="About Us" component={AboutUsScreen} options={{ title: "About Us" }} />
       <Stack.Screen name="Blogs" component={BlogScreen} options={{ title: "Blogs" }} />
       <Stack.Screen name="Blog" component={BlogDetailsScreen} options={{ title: "Blog" }} />
-      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: "Connect" }} />
+      {/* <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: "AstroBook Chat" }} /> */}
       <Stack.Screen name="UserConsultationList" component={UserConsultationList} options={{ headerShown: true, title: "My Consultations" }} />
       <Stack.Screen
         name="BookedPoojaListScreen"
@@ -76,6 +74,7 @@ export default function HomeStack() {
         component={CartScreen}
         options={{ headerShown: true, title: 'Pooja Cart' }}
       />
+      
     </Stack.Navigator>
   );
 }

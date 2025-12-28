@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import IMAGE_BASE_URL from "../imageConfig";
 
 const ConsultationDetailsScreen = () => {
   const navigation = useNavigation();
+  const [imageError, setImageError] = useState(false);
+
   const route = useRoute();
   const getImageUrl = (path) => {
     if (!path) return null;
@@ -36,16 +38,20 @@ const ConsultationDetailsScreen = () => {
 
         {/* PROFILE CARD */}
         <View style={styles.profileCard}>
-          <Image
-            // source={{
-            //   uri: astrologer?.profileImage
-            //     ? `${astrologer.profileImage}`
-            //     : "https://via.placeholder.com/150",
-            // }}
-            source={{ uri: getImageUrl(astrologer?.profileImage) }}
+        <View style={styles.profileImageWrapper}>
+  {getImageUrl(astrologer?.profileImage) && !imageError ? (
+    <Image
+      source={{ uri: getImageUrl(astrologer?.profileImage) }}
+      style={styles.profileImage}
+      onError={() => setImageError(true)} // 👈 fallback trigger
+    />
+  ) : (
+    <View style={styles.profileImageFallback}>
+      <Icon name="account" size={36} color="#db9a4a" />
+    </View>
+  )}
+</View>
 
-            style={styles.profileImage}
-          />
 
           <View style={styles.profileInfo}>
             <Text style={styles.name}>{astrologer?.astrologerName}</Text>
@@ -197,7 +203,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10
   },
-
+  profileImageWrapper: {
+    width: 70,
+    height: 70,
+    borderRadius: 40,
+    marginRight: 12,
+    overflow: "hidden",
+  },
+  
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 40,
+  },
+  
+  profileImageFallback: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 40,
+    backgroundColor: "#FFF5E6",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EEE2D3",
+  },
+  
   /* HEADER */
   header: {
     flexDirection: "row",
@@ -232,12 +262,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#EEE2D3",
   },
-  profileImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 40,
-    marginRight: 12,
-  },
+  // profileImage: {
+  //   width: 70,
+  //   height: 70,
+  //   borderRadius: 40,
+  //   marginRight: 12,
+  // },
   profileInfo: {
     flex: 1,
   },

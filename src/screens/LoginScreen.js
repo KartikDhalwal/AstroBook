@@ -173,7 +173,7 @@ return (
           </Text>
 
           <Text style={styles.loginImageText} allowFontScaling={false}>
-            <TranslateText title="Your Astrology Search Ends Here" />
+            <TranslateText title="Your Celestial Guidance App" />
           </Text>
         </View>
 
@@ -334,7 +334,7 @@ return (
 
             <View style={styles.statBox}>
               <Text style={styles.statNumber} allowFontScaling={false}>
-                10+
+                15+
               </Text>
               <Text style={styles.statLabel} allowFontScaling={false}>
                 Years of Exp.

@@ -230,7 +230,7 @@ const SelectSlotScreen = ({ route }) => {
               consultationLogId: consultationLogId,
             }
           );
-
+          navigation.navigate('MainTabs')
           Toast.show({
             type: "success",
             text1: "Payment Successful",

@@ -124,18 +124,12 @@ const debouncedExpertise = useDebounce(selectedExpertise, 2000);
 
     try {
       const url = `${api}/astrologer/astrologer_filters?page=${pageNo}&limit=${PAGE_LIMIT}&searchText=${finalSearchText}&hasAvailableSlots=true&currentTime=${currentTime}`;
-
-      console.log("API URL:", url);
-
       const response = await axios.get(url);
-      console.log(response.data.results, 'response.data.results')
       if (response?.data?.success) {
         const newData = response.data.results || [];
-
         setAstrologers(prev =>
           isLoadMore ? [...prev, ...newData] : newData
         );
-
         setHasMore(newData.length === PAGE_LIMIT);
         setPage(pageNo);
       }
@@ -227,7 +221,7 @@ const debouncedExpertise = useDebounce(selectedExpertise, 2000);
     <View style={styles.container}>
       {!routeMode && <MyHeader />}
 
-      <MyLoader isVisible={isLoading} />
+      {/* <MyLoader isVisible={isLoading} /> */}
 
       {/* Header with Search + Filter */}
       <View style={styles.header}>

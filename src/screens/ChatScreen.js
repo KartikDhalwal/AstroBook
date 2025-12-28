@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { initSocket, getSocket } from "../services/socket";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 import api from "../apiConfig";
@@ -39,12 +40,72 @@ const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * fact
 export default function ChatScreen({ route }) {
   const { astrologer: routeAstrologer, userData: routeUser, time: timeString, date: bookingDate } = route?.params || {};
   const [isWithinTime, setIsWithinTime] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [remainingTime, setRemainingTime] = useState("");
+  useEffect(() => {
+    if (!timeString || !bookingDate) return;
+
+    const bookingDay = parseBookingDate(bookingDate);
+    if (!bookingDay) return;
+
+    const [, end] = timeString.split(" - ");
+    if (!end) return;
+
+    const [endH, endM] = end.split(":").map(Number);
+
+    const endTime = new Date(bookingDay);
+    endTime.setHours(endH, endM, 0, 0);
+
+    const timer = setInterval(() => {
+      const now = new Date();
+      const diff = endTime - now;
+
+      if (diff <= 0) {
+        setRemainingTime("Session Ended");
+        clearInterval(timer);
+        return;
+      }
+
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+
+      setRemainingTime(
+        `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+      );
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeString, bookingDate]);
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates?.height || 0);
+      }
+    );
+
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
 
   const userData = routeUser || {
     _id: "user_123",
@@ -121,38 +182,37 @@ export default function ChatScreen({ route }) {
     return now >= startTime && now <= endTime;
   };
 
-useEffect(() => {
-  const validate = () => {
-    const result = checkTimeValidity(timeString, bookingDate);
+  useEffect(() => {
+    const validate = () => {
+      const result = checkTimeValidity(timeString, bookingDate);
 
-    // Session JUST ended
-    if (isWithinTime && !result && !sessionEnded) {
-      setSessionEnded(true);
-      setIsWithinTime(false);
+      // Session JUST ended
+      if (isWithinTime && !result && !sessionEnded) {
+        setSessionEnded(true);
+        setIsWithinTime(false);
 
-      Keyboard.dismiss();
+        Keyboard.dismiss();
 
-      Alert.alert(
-        "Session Ended",
-        "Your consultation session has been ended.",
-        [{ text: "OK", style: "default" }],
-        { cancelable: false }
-      );
-    }
+        Alert.alert(
+          "Session Ended",
+          "Your consultation session has been ended.",
+          [{ text: "OK", style: "default" }],
+          { cancelable: false }
+        );
+      }
 
-    setIsWithinTime(result);
-  };
+      setIsWithinTime(result);
+    };
 
-  validate();
-  const interval = setInterval(validate, 30000); // check every 30 sec
-  return () => clearInterval(interval);
-}, [timeString, bookingDate, isWithinTime, sessionEnded]);
+    validate();
+    const interval = setInterval(validate, 30000); // check every 30 sec
+    return () => clearInterval(interval);
+  }, [timeString, bookingDate, isWithinTime, sessionEnded]);
 
   const userId = userData._id;
   const astrologerId = astrologer._id;
 
   const socketRef = useRef(null);
-  const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingDotAnim = useRef(new Animated.Value(0)).current;
 
@@ -202,16 +262,20 @@ useEffect(() => {
       const res = await axios.get(url, { headers: { "Content-Type": "application/json" } });
       const data = res.data;
       if (data && data.success) {
-        const formatted = (data.messages || []).map((m) => ({
-          id: m.messageId || m._id || `${Date.now()}_${Math.random()}`,
-          text: m.text || m.message || "",
-          senderId: m.senderId,
-          receiverId: m.receiverId,
-          timestamp: m.timestamp || m.createdAt,
-          status: m.status || "delivered",
-        }));
+        const formatted = (data.messages || [])
+          .map((m) => ({
+            id: m.messageId || m._id || `${Date.now()}_${Math.random()}`,
+            text: m.text || m.message || "",
+            senderId: m.senderId,
+            receiverId: m.receiverId,
+            timestamp: m.timestamp || m.createdAt,
+            status: m.status || "delivered",
+          }))
+          .reverse(); // 👈 REQUIRED for inverted list
+
         setMessages(formatted);
-        setTimeout(scrollToBottom, 120);
+
+        // setTimeout(scrollToBottom, 120);
       }
     } catch (err) {
       console.error("Chat history error:", err?.response?.data ?? err?.message ?? err);
@@ -262,56 +326,55 @@ useEffect(() => {
 
 
   const onReceiveMessage = (message) => {
+    if (message.senderId === userId) return;
+
     const formatted = {
-      id: message.messageId || message.id || `${Date.now()}_${Math.random()}`,
+      id: message.messageId || message.id,
       text: message.text || message.message || "",
       senderId: message.senderId,
       receiverId: message.receiverId,
-      timestamp: message.timestamp || message.createdAt || new Date().toISOString(),
+      timestamp: message.timestamp || message.createdAt,
       status: message.status || "delivered",
       tempId: message.tempId,
     };
 
     setMessages((prev) => {
-      if (formatted.tempId) {
-        const exists = prev.some((m) => m.id === formatted.tempId);
-        if (exists) {
-          return prev.map((m) =>
-            m.id === formatted.tempId ? { ...m, id: formatted.id, status: formatted.status, timestamp: formatted.timestamp } : m
-          );
-        }
-      }
-
       if (prev.some((m) => m.id === formatted.id)) return prev;
-
-      const fuzzy = prev.some(
-        (m) =>
-          m.text === formatted.text &&
-          m.senderId === formatted.senderId &&
-          Math.abs(new Date(m.timestamp) - new Date(formatted.timestamp)) < 1500
-      );
-      if (fuzzy) return prev;
-
-      return [...prev, formatted];
+      return [formatted, ...prev];
     });
 
     setOtherTyping(false);
-    setTimeout(scrollToBottom, 80);
 
-    if (formatted.senderId === astrologerId && socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit("read_message_normal", { messageId: formatted.id, userId });
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("read_message_normal", {
+        messageId: formatted.id,
+        userId,
+      });
     }
   };
+  const inputContainerStyle = useMemo(
+    () => [
+      styles.inputContainer,
+      {
+        paddingBottom: Math.max(
+          insets.bottom,
+          keyboardHeight > 0 ? 8 : 16
+        ),
+      },
+    ],
+    [insets.bottom, keyboardHeight]
+  );
+
 
   const updateMessageStatus = (messageId, status) => {
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, status } : m)));
   };
 
   const handleSendMessage = () => {
-  if (!isWithinTime || sessionEnded) return;
+    if (!isWithinTime || sessionEnded) return;
 
-  const trimmed = inputText.trim();
-  if (!trimmed) return;
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
 
     const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const payload = {
@@ -323,10 +386,12 @@ useEffect(() => {
     };
 
     const local = { ...payload, id: tempId, status: "sent" };
-    setMessages((prev) => [...prev, local]);
+
+    setMessages((prev) => [local, ...prev]); // 👈 PREPEND
     setInputText("");
     setIsTyping(false);
-    setTimeout(scrollToBottom, 80);
+
+    // setTimeout(scrollToBottom, 80);
 
     const s = getSocket();
     if (s && s.connected) {
@@ -345,6 +410,7 @@ useEffect(() => {
     }
 
 
+
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       if (socketRef.current && socketRef.current.connected) {
@@ -354,15 +420,6 @@ useEffect(() => {
     }, 1500);
   };
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      if (flatListRef.current?.scrollToEnd) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      } else if (flatListRef.current?.scrollToOffset) {
-        flatListRef.current.scrollToOffset({ offset: 99999, animated: true });
-      }
-    }, 100);
-  };
 
   const formatTime = (ts) => {
     const d = new Date(ts);
@@ -458,18 +515,29 @@ useEffect(() => {
               <Image source={{ uri: astrologerImg }} style={styles.headerAvatar} />
             ) : (
               <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
-                <Text style={styles.headerAvatarText}>{(astrologer.astrologerName || "A")[0].toUpperCase()}</Text>
+                <Icon
+                  name="account"
+                  size={28}
+                  color="#fff"
+                />
               </View>
             )}
             {astrologer.status === "online" && <View style={styles.onlineIndicator} />}
           </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.headerName} numberOfLines={1}>{astrologer.astrologerName || routeAstrologer.name || "Astrologer"}</Text>
-            {/* <View style={styles.statusRow}>
-              <View style={[styles.statusDot, isConnected ? styles.statusConnected : styles.statusDisconnected]} />
-              <Text style={styles.headerStatus}>{otherTyping ? "typing..." : astrologer.status === "online" ? "Active now" : "Offline"}</Text>
-            </View> */}
+            <Text style={styles.headerName} numberOfLines={1}>
+              {astrologer.astrologerName || routeAstrologer.name || "Astrologer"}
+            </Text>
+
+            {!!remainingTime && (
+              <Text style={styles.headerTimer}>
+                {remainingTime === "Session Ended"
+                  ? "Session Ended"
+                  : `Ends in ${remainingTime}`}
+              </Text>
+            )}
           </View>
+
         </View>
       </View>
     </View>
@@ -487,15 +555,16 @@ useEffect(() => {
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "padding"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 70}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          enabled
         >
-          {/* <View style={styles.messagesContainer}> */}
-          <ImageBackground
-            source={require("../assets/images/logoBlack.png")}
-            style={styles.messagesContainer}
-            imageStyle={styles.watermark}
-          >
+
+          <View style={{ flex: 1 }}>
+            <ImageBackground
+              source={require("../assets/images/logoBlack.png")}
+              style={StyleSheet.absoluteFillObject}
+              imageStyle={styles.watermark}
+            />
             {loadingHistory ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#db9a4a" />
@@ -504,58 +573,76 @@ useEffect(() => {
             ) : (
               <FlatList
                 data={messages}
-                ref={flatListRef}
+                inverted
                 keyExtractor={(item) => item.id}
                 renderItem={renderMessage}
                 ListFooterComponent={renderTypingIndicator}
-                onContentSizeChange={scrollToBottom}
-                contentContainerStyle={styles.messagesList}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                  styles.messagesList,
+                  {
+                    paddingBottom:
+                      Platform.OS === "ios"
+                        ? verticalScale(20) + insets.bottom
+                        : verticalScale(20),
+                  },
+                ]}
               />
+
+
             )}
-          </ImageBackground>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.inputShadow}>
-              <View style={styles.inputWrapper}>
-                <View style={styles.inputBox}>
-                  <TextInput
-                    style={styles.input}
-                     placeholder={
-    sessionEnded
-      ? "Your session has ended"
-      : isWithinTime
-      ? "Type your message..."
-      : "Chat will be enabled in your session"
-  }
-                    placeholderTextColor="#9CA3AF"
-                    value={inputText}
-  onChangeText={isWithinTime && !sessionEnded ? handleTyping : undefined}
-  editable={isWithinTime && !sessionEnded}
-                    multiline
-                    scrollEnabled
-                    textAlignVertical="top"
-                    maxLength={1000}
-                  />
-                </View>
-                <TouchableOpacity
-  style={[
-    styles.sendButton,
-    (!inputText.trim() || !isWithinTime || sessionEnded) &&
-      styles.sendButtonDisabled
-  ]}
-  onPress={handleSendMessage}
-  disabled={!inputText.trim() || !isWithinTime || sessionEnded}
->
-
-                  <Icon name="send" size={moderateScale(20)} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
       </View>
-    </SafeAreaView>
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            paddingBottom:
+              Platform.OS === "ios"
+                ? Math.max(insets.bottom, 12)
+                : Math.max(insets.bottom, 90),
+          },
+        ]}
+      >
+        <View style={styles.inputShadow}>
+          <View style={styles.inputWrapper}>
+            <View style={styles.inputBox}>
+              <TextInput
+                style={styles.input}
+                placeholder={
+                  sessionEnded
+                    ? "Your session has ended"
+                    : isWithinTime
+                      ? "Type your message..."
+                      : "Chat will be enabled in your session"
+                }
+                placeholderTextColor="#9CA3AF"
+                value={inputText}
+                onChangeText={isWithinTime && !sessionEnded ? handleTyping : undefined}
+                editable={isWithinTime && !sessionEnded}
+                multiline
+                scrollEnabled
+                textAlignVertical="top"
+                maxLength={1000}
+              />
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || !isWithinTime || sessionEnded) &&
+                styles.sendButtonDisabled
+              ]}
+              onPress={handleSendMessage}
+              disabled={!inputText.trim() || !isWithinTime || sessionEnded}
+            >
+
+              <Icon name="send" size={moderateScale(20)} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+      </View >
+    </SafeAreaView >
   );
 }
 
@@ -620,6 +707,14 @@ const styles = StyleSheet.create({
     marginLeft: scale(14),
     flex: 1
   },
+
+  headerTimer: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#FDE68A", // soft yellow
+    fontWeight: "500",
+  },
+
   headerName: {
     fontSize: moderateScale(19),
     fontWeight: "700",
@@ -832,7 +927,6 @@ const styles = StyleSheet.create({
     paddingVertical: verticalScale(4),
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    marginBottom: 24
   },
   inputBox: {
     flex: 1,

@@ -47,16 +47,18 @@ export default function ChatStack() {
         options={{ headerShown: true, title: 'Profile' }}
       />
       <Stack.Screen name="UserConsultationList" component={UserConsultationList} options={{ headerShown: true, title: "My Consultations" }} />
-        <Stack.Screen
-          name="CartScreen"
-          component={CartScreen}
-          options={{ headerShown: true, title: 'Pooja Cart' }}
-        />
-                <Stack.Screen
-          name="PoojaDetails"
-          component={PoojaDetails}
-          options={{ headerShown: true, title: 'Pooja Details' }}
-        />
+      <Stack.Screen
+        name="CartScreen"
+        component={CartScreen}
+        options={{ headerShown: true, title: 'Pooja Cart' }}
+      />
+      <Stack.Screen
+        name="PoojaDetails"
+        component={PoojaDetails}
+        options={{ headerShown: true, title: 'Pooja Details' }}
+      />
+
+
     </Stack.Navigator>
   );
 }

@@ -1205,7 +1205,7 @@ const KundliDetailScreen = ({ route }) => {
     const [kp, setKP] = useState(null);
     const [numerology, setNumerology] = useState(null); // { core, gemini }
     const [prediction, setPrediction] = useState(null);
-    console.log(basic,'basic')
+    console.log(basic, 'basic')
     const reqBodyRef = useRef(null);
     // ---------- Basic + general tab ----------
     const fetchBasicDetails = async () => {
@@ -1218,12 +1218,17 @@ const KundliDetailScreen = ({ route }) => {
 
             const d = res.data?.data;
             const p = res.data?.payload;
-
+            console.log(d, p, 'dfvdvfdvdfvfd')
             if (!d || !p) {
                 setInitialLoading(false);
                 setDataLoading((prev) => ({ ...prev, general: false }));
                 return;
             }
+            const tobDate = new Date(d.tob);
+
+            // ✅ IMPORTANT: use UTC getters
+            const hour24 = tobDate.getUTCHours();     // 16
+            const minute = tobDate.getUTCMinutes();   // 51
 
             const basicData = {
                 name: d.name,
@@ -1232,21 +1237,23 @@ const KundliDetailScreen = ({ route }) => {
                 day: p.day,
                 month: p.month,
                 year: p.year,
-                hour: p.hour,
-                min: p.min,
+                hour: hour24,        // ✅ from d.tob
+                min: minute,
                 latitude: p.lat,
                 longitude: p.lon,
                 timezone: p.tzone,
             };
             setBasic(basicData);
 
+            const localHour = tobDate.getHours();   // 0–23
+            const localMin = tobDate.getMinutes();
             const req = {
                 name: d.name,
                 day: String(p.day),
                 month: String(p.month),
                 year: String(p.year),
-                hour: String(p.hour),
-                min: String(p.min),
+                hour: String(hour24),    // ✅ correct 24h
+                min: String(localMin),
                 latitude: String(p.lat),
                 longitude: String(p.lon),
                 timezone: "5.5",
@@ -1918,15 +1925,16 @@ const KundliDetailScreen = ({ route }) => {
 
         return `${weekday} ${month} ${basic.day} ${basic.year}`;
     };
-const formatTimeAMPM = (hour, min) => {
-  if (hour === undefined || min === undefined) return '...';
+    const formatTimeAMPM = (h, m) => {
+        const period = h >= 12 ? "PM" : "AM";
+        const hour12 = h % 12 === 0 ? 12 : h % 12;
+        return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+    };
 
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const hours12 = hour % 12 || 12; // converts 0 → 12
-  const minutes = String(min).padStart(2, '0');
 
-  return `${hours12}:${minutes} ${period}`;
-};
+
+
+
     return (
         <View style={styles.fullScreenContainer}>
             {/* Header */}
@@ -1947,6 +1955,8 @@ const formatTimeAMPM = (hour, min) => {
                     <Text style={styles.subDetail}>
                         {basic ? formatTimeAMPM(basic.hour, basic.min) : '...'}
                     </Text>
+
+
                     <Icon
                         name="gender-male-female"
                         size={14}

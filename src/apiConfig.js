@@ -1,4 +1,4 @@
-const api = 'https://alb.gennextit.com/api'
+const api = 'https://api.acharyalavbhushan.com/api'
 
 export default api
 

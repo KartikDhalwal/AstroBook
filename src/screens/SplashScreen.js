@@ -1,49 +1,36 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Video from 'react-native-video';
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../config/Screen';
+import { View, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../config/Screen';
 
 const SplashScreen = ({ navigation }) => {
-  
   useEffect(() => {
-    const checkLoginStatus = async () => {
+    const timer = setTimeout(async () => {
       try {
         const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
         const customerData = await AsyncStorage.getItem('customerData');
 
-        // Let video finish, then this logic will run inside onEnd()
-        global.loginStatus = { isLoggedIn, customerData };
+        if (isLoggedIn === 'true' && customerData) {
+          navigation.replace('MainTabs');
+        } else {
+          navigation.replace('Login');
+        }
       } catch (error) {
-        console.error('Error checking login status:', error);
+        console.error('Splash error:', error);
         navigation.replace('Login');
       }
-    };
+    }, 1500); // ⏱️ 1.5 seconds delay
 
-    checkLoginStatus();
-  }, []);
-
-  const handleVideoEnd = () => {
-    const { isLoggedIn, customerData } = global.loginStatus;
-
-    if (isLoggedIn === 'true' && customerData) {
-      navigation.replace('MainTabs');
-    } else {
-      navigation.replace('Login');
-    }
-  };
+    return () => clearTimeout(timer);
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <Video
-        source={require('../assets/gifs/splashMp4.mp4')}
-        style={styles.splashVideo}
+      <Image
+        source={require('../assets/images/splash.png')}
+        style={styles.splashImage}
         resizeMode="cover"
-        onEnd={handleVideoEnd}
-        paused={false}
-        repeat={false}
-        muted={false}
       />
     </SafeAreaView>
   );
@@ -54,7 +41,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  splashVideo: {
+  splashImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },

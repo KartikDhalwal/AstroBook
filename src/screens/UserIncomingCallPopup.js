@@ -11,33 +11,111 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import InCallManager from "react-native-incall-manager";
 import { Image } from "react-native";
 import IMAGE_BASE_URL from "../imageConfig";
+import axios from "axios";
+import api from "../apiConfig";
+import { initSocket, getSocket } from "../services/socket";
 
 export default function UserIncomingCallPopup({ navigation, route }) {
+  const isCleaningUp = useRef(false);
+  const socketRef = useRef(null);
+
   const { booking, astrologerData, channelName } = route.params || {};
   const isVideo = booking?.consultationType === "videocall";
 
   const pulseAnim = useRef(new Animated.Value(0.9)).current;
-
-  /* 🔔 Start Ringtone + Vibration */
   useEffect(() => {
-    try {
-      InCallManager.startRingtone("_DEFAULT_");
-    } catch (e) {
-      console.log("InCallManager ringtone error =>", e);
+    const customerId = booking?.customer?._id;
+    if (!customerId) return;
+
+    const s = initSocket({
+      userId: customerId,
+      user_type: "customer",
+    });
+
+    socketRef.current = s;
+
+    if (!s.connected) {
+      s.connect();
     }
 
-    // Vibrate indefinitely with a pattern until cancelled
-    // Vibration.vibrate([500, 500], true);
+    return () => {
+      socketRef.current = null;
+    };
+  }, [booking?.customer?._id]);
+  const cleanupAndExit = () => {
+    try {
+      InCallManager.stopRingtone();
+    } catch { }
+
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "MainTabs" }],
+    });
+  };
+
+
+
+
+  const endCallFromPopup = (reason = "rejected") => {
+    if (isCleaningUp.current) return;
+    isCleaningUp.current = true;
+
+    const socket = socketRef.current;
+
+    if (socket) {
+      const emitEnd = () => {
+        socket.emit("call:ring:end", {
+          channelName,
+          bookingId: booking?._id,
+          astrologerId: astrologerData?._id,
+          customerId: booking?.customer?._id,
+          endedBy: "customer",
+          reason: "rejected",
+        });
+
+      };
+
+      if (socket.connected) {
+        emitEnd();
+      } else {
+        socket.once("connect", emitEnd);
+      }
+    }
+
+    cleanupAndExit(); // ✅ ALWAYS runs
+  };
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !channelName) return;
+
+    socket.emit("call:join", {
+      channelName,
+      role: "customer",
+      phase: "ringing",
+    });
+  }, [channelName]);
+
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !channelName) return;
+
+    const handleEnd = (data) => {
+      if (data.channelName !== channelName) return;
+      cleanupAndExit();
+    };
+
+    socket.on("call:end", handleEnd);
+    socket.on("call:ring:end", handleEnd);
 
     return () => {
-      try {
-        InCallManager.stopRingtone();
-      } catch (e) {
-        console.log("InCallManager stopRingtone error =>", e);
-      }
-      //   Vibration.cancel();
+      socket.off("call:end", handleEnd);
+      socket.off("call:ring:end", handleEnd);
     };
-  }, []);
+  }, [channelName]);
+
+
+
 
   /* 🔥 Pulse Animation */
   useEffect(() => {
@@ -84,15 +162,10 @@ export default function UserIncomingCallPopup({ navigation, route }) {
   };
   /** ✖ Reject Call */
   const rejectCall = () => {
-    try {
-      InCallManager.stopRingtone();
-    } catch (e) { }
-    // Vibration.cancel();
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'UserConsultationList' }],
-    });
+    endCallFromPopup("rejected");
   };
+
+
 
   return (
     <View style={styles.container}>

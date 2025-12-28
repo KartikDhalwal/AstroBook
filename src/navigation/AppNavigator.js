@@ -25,6 +25,8 @@ import SelectSlotScreenReschedule from "../screens/SlotDetailsReschedule";
 import CartScreen from "../screens/CartScreen";
 import AstroTalkHome from "../screens/HomeScreen";
 import BookedPoojaListScreen from "../screens/BookedPoojaListScreen";
+import ContactDetailsScreen from "../screens/ContactDetailsScreen";
+import SignUpLogin from "../screens/SignUpLogin";
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +53,11 @@ export default function AppNavigator() {
           name="SignUp"
           component={SignUp}
           options={{ headerShown: true, title: 'Profile' }}
+        />
+        <Stack.Screen
+          name="SignUpLogin"
+          component={SignUpLogin}
+          options={{ headerShown: true, title: 'Complete Your Profile' }}
         />
         <Stack.Screen
           name="Otp"
@@ -153,6 +160,11 @@ export default function AppNavigator() {
           name="BookedPoojaListScreen"
           component={BookedPoojaListScreen}
           options={{ headerShown: true, title: 'Booked Pooja' }}
+        />
+        <Stack.Screen
+          name="ContactDetailsScreen"
+          component={ContactDetailsScreen}
+          options={{ headerShown: true, title: 'Contact Details' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -21,11 +21,19 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get("window");
+
+// Responsive sizing helpers
+const scale = (size) => (WINDOW_WIDTH / 375) * size; // Base width 375 (iPhone X)
+const verticalScale = (size) => (WINDOW_HEIGHT / 812) * size; // Base height 812 (iPhone X)
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 
 
 
 const MyHeader = () => {
   const navigation = useNavigation();
+  const [imageError, setImageError] = useState(false);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -57,7 +65,13 @@ const MyHeader = () => {
   }, []);
   const getImageUrl = (path) =>
     path?.startsWith('http') ? path : `${BASE_URL}${path}`;
-  let Imguri = getImageUrl(customerData.image);
+  const Imguri =
+    customerData?.image &&
+      typeof customerData.image === 'string' &&
+      customerData.image.trim().length > 0
+      ? getImageUrl(customerData.image)
+      : null;
+
   const insets = useSafeAreaInsets();
 
   const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.8)).current;
@@ -159,11 +173,16 @@ const MyHeader = () => {
         navigation.navigate('CartScreen');
         break;
       case 'Logout':
-        handleLogout();
+        setDrawerVisible(false);
+        setTimeout(() => handleLogout(), 300);
         break;
-      case 'Delete Account':
-        handleLogout();
-        break;
+
+        case 'Delete Account':
+          setDrawerVisible(false);
+          setTimeout(() => setConfirmDeleteVisible(true), 300);
+          break;
+        
+
       case 'Contact Us':
         handleSupport();
         break;
@@ -195,9 +214,72 @@ const MyHeader = () => {
       },
     ]);
   };
+  const confirmDeleteAccount = async () => {
+    try {
+      // Get user data
+      const storedData = await AsyncStorage.getItem('customerData');
+  
+      if (!storedData) {
+        Alert.alert('Error', 'User data not found');
+        return;
+      }
+  
+      const userData = JSON.parse(storedData);
+  
+      // Call delete API
+      const res = await axios.post(
+        `${api}/admin/delete-customer`,
+        { customerId: userData._id },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000,
+        }
+      );
+  
+      if (res?.data?.success) {
+        // Clear storage
+        await AsyncStorage.multiRemove(['customerData', 'isLoggedIn']);
+  
+        // Small delay to avoid Android navigation race condition
+        setTimeout(() => {
+          Alert.alert(
+            'Account Deleted',
+            'Your account has been deleted successfully.'
+          );
+  
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 200);
+      } else {
+        Alert.alert(
+          'Failed',
+          res?.data?.message || 'Unable to delete account'
+        );
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+  
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Something went wrong. Please try again.';
+  
+      Alert.alert('Error', message);
+    }
+  };
+  
+
   const handleSupport = () => {
     setSupportModalVisible(true);
   };
+
+  useEffect(() => {
+    setImageError(false);
+  }, [customerData?.image]);
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
@@ -215,9 +297,8 @@ const MyHeader = () => {
 
       <TouchableOpacity style={styles.notificationButton} onPress={toggleDropdown}>
         <Icon name="account" size={24} color="black" />
-        {/* {hasUnread && <View style={styles.notificationBadge} />} */}
-
       </TouchableOpacity>
+
       <Modal
         transparent={true}
         visible={supportModalVisible}
@@ -297,15 +378,25 @@ const MyHeader = () => {
                 {/* Drawer Header */}
                 <View style={styles.drawerHeader}>
                   <View style={styles.profileContainer}>
-                    <View style={styles.avatarWrapper}>
-                      <Image
-                        source={{ uri: Imguri }}
-                        style={styles.avatar}
-                      />
-                      <View style={styles.avatarBadge}>
-                        <Text style={styles.avatarBadgeText}>✓</Text>
+                    {Imguri && !imageError ? (
+                      <View style={styles.avatarWrapper}>
+                        <Image
+                          source={{ uri: Imguri }}
+                          style={styles.avatar}
+                          resizeMode="cover"
+                          onError={() => setImageError(true)}   // 👈 CRITICAL
+                        />
+                        <View style={styles.avatarBadge}>
+                          <Text style={styles.avatarBadgeText}>✓</Text>
+                        </View>
                       </View>
-                    </View>
+                    ) : (
+                      <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
+                        <Icon name="account" size={32} color="#fff" />
+                      </View>
+                    )}
+
+
                     <View style={styles.userInfo}>
                       <Text style={styles.userName}>{customerData.customerName}</Text>
                       <Text style={styles.phoneText}>{customerData.phoneNumber}</Text>
@@ -452,6 +543,36 @@ const MyHeader = () => {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+      <Modal transparent visible={confirmDeleteVisible} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={{ marginBottom: 16 }}>
+              This action is permanent. Do you want to continue?
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => setConfirmDeleteVisible(false)}
+                style={{ marginRight: 16 }}
+              >
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setConfirmDeleteVisible(false);
+                  confirmDeleteAccount(); // API call
+                }}
+              >
+                <Text style={{ color: '#D32F2F', fontWeight: '700' }}>
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -460,6 +581,96 @@ const MyHeader = () => {
 export default MyHeader;
 const styles = StyleSheet.create({
   /* ================= HEADER ================= */
+  drawerHeader: {
+    backgroundColor: '#db9a4a',
+    paddingTop: 50,
+    paddingBottom: 24,
+    borderBottomRightRadius: 24,
+  },
+
+  profileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+
+  avatarWrapper: {
+    position: 'relative',
+  },
+
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  avatarBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  headerAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+
+  avatarPlaceholder: {
+    backgroundColor: '#db9a4a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  userInfo: {
+    marginLeft: 16,
+    flex: 1,
+  },
+
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  phoneText: {
+    fontSize: 13,
+    color: '#FFF5E6',
+    marginTop: 2,
+  },
+
+  premiumBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+
+  premiumText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -640,7 +851,33 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 18,
   },
-
+  avatarContainer: {
+    width: moderateScale(36),
+    marginRight: scale(8),
+    marginBottom: verticalScale(2)
+  },
+  // avatar: {
+  //   width: moderateScale(36),
+  //   height: moderateScale(36),
+  //   borderRadius: moderateScale(18),
+  //   borderWidth: 2,
+  //   borderColor: "#E5E7EB"
+  // },
+  avatarPlaceholder: {
+    backgroundColor: "#db9a4a",
+    justifyContent: "center",
+    alignItems: "center",
+    borderColor: "#c28940"
+  },
+  avatarText: {
+    fontSize: moderateScale(15),
+    fontWeight: "700",
+    color: "#fff"
+  },
+  avatarSpacer: {
+    width: moderateScale(36),
+    height: moderateScale(36)
+  },
   modalButton: {
     marginTop: 10,
     backgroundColor: '#db9a4a',
@@ -670,77 +907,86 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  drawerHeader: {
-    backgroundColor: '#db9a4a',
-    paddingTop: 50,
-    paddingBottom: 24,
-    borderBottomRightRadius: 24,
-  },
+  // drawerHeader: {
+  //   backgroundColor: '#db9a4a',
+  //   paddingTop: 50,
+  //   paddingBottom: 24,
+  //   borderBottomRightRadius: 24,
+  // },
 
-  profileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+  // profileContainer: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingHorizontal: 20,
+  // },
+  // avatarWrapper: {
+  //   position: 'relative',
+  // },
+  // avatar: {
+  //   width: 80,
+  //   height: 80,
+  //   borderRadius: 42,
+  // },
+  // avatarBadge: {
+  //   position: 'absolute',
+  //   bottom: 0,
+  //   right: 0,
+  //   width: 24,
+  //   height: 24,
+  //   borderRadius: 12,
+  //   backgroundColor: '#4CAF50',
+  //   borderWidth: 2,
+  //   borderColor: '#FFFFFF',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  // },
+  headerAvatarContainer: {
+    position: "relative"
   },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 42,
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // headerAvatar: {
+  //   width: moderateScale(52),
+  //   height: moderateScale(52),
+  //   borderRadius: moderateScale(26),
+  //   borderWidth: 3,
+  //   borderColor: "rgba(255,255,255,0.3)"
+  // },
+  // avatarBadgeText: {
+  //   color: '#FFFFFF',
+  //   fontSize: 12,
+  //   fontWeight: '700',
+  // },
 
-  avatarBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  // userInfo: {
+  //   marginLeft: 12,
+  //   flex: 1,
+  // },
 
-  userInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
+  // userName: {
+  //   fontSize: 18,
+  //   fontWeight: '700',
+  //   color: '#FFFFFF',
+  // },
 
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  // phoneText: {
+  //   fontSize: 13,
+  //   color: '#FFF5E6',
+  //   marginTop: 2,
+  // },
 
-  phoneText: {
-    fontSize: 13,
-    color: '#FFF5E6',
-    marginTop: 2,
-  },
+  // premiumBadge: {
+  //   backgroundColor: 'rgba(255,255,255,0.25)',
+  //   alignSelf: 'flex-start',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 12,
+  //   marginTop: 6,
+  // },
 
-  premiumBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 6,
-  },
-
-  premiumText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  // premiumText: {
+  //   color: '#FFFFFF',
+  //   fontSize: 11,
+  //   fontWeight: '600',
+  // },
 
   menuWrapper: {
     paddingTop: 16,

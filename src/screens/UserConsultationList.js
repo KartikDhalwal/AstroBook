@@ -126,7 +126,16 @@ const UserConsultationList = () => {
     // Extract today's date strip time
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+    const getStartDateTime = (item) => {
+        if (!item?.date || !item?.fromTime) return new Date(8640000000000000); // max date
+      
+        const dateObj = new Date(item.date);
+        const [h, m] = item.fromTime.split(":").map(Number);
+      
+        dateObj.setHours(h, m, 0, 0);
+        return dateObj;
+      };
+      
     const parseTimeToDate = (date, fromTime, toTime) => {
         const dateObj = new Date(date);
 
@@ -143,47 +152,55 @@ const UserConsultationList = () => {
     };
 
     // UPCOMING (Today's & time not passed)
-    const upcoming = searchFiltered.filter((item) => {
-        if (item?.status !== "booked") return false;
-
-        const itemDate = new Date(item.date);
-        itemDate.setHours(0, 0, 0, 0);
-
-        const todayOnly = new Date();
-        todayOnly.setHours(0, 0, 0, 0);
-
-        const { endDate } = parseTimeToDate(
-            item.date,
-            item.fromTime,
-            item.toTime
-        );
-
-        if (itemDate > todayOnly) return true;
-
-        if (itemDate.getTime() === todayOnly.getTime()) {
-            return now <= endDate;
-        }
-
-        return false;
-    });
+    const upcoming = searchFiltered
+    .filter((item) => {
+      if (item?.status !== "booked") return false;
+  
+      const itemDate = new Date(item.date);
+      itemDate.setHours(0, 0, 0, 0);
+  
+      const todayOnly = new Date();
+      todayOnly.setHours(0, 0, 0, 0);
+  
+      const { endDate } = parseTimeToDate(
+        item.date,
+        item.fromTime,
+        item.toTime
+      );
+  
+      if (itemDate > todayOnly) return true;
+      if (itemDate.getTime() === todayOnly.getTime()) return now <= endDate;
+  
+      return false;
+    })
+    .sort((a, b) => getStartDateTime(a) - getStartDateTime(b));
+  
 
     // PENDING (Date passed OR today's time passed)
-    const pending = searchFiltered.filter((item) => {
-        if (item?.status !== "booked") return false;
+    const pending = searchFiltered
+  .filter((item) => {
+    if (item?.status !== "booked") return false;
 
-        const { endDate } = parseTimeToDate(
-            item.date,
-            item.fromTime,
-            item.toTime
-        );
+    const { endDate } = parseTimeToDate(
+      item.date,
+      item.fromTime,
+      item.toTime
+    );
 
-        return now > endDate;
-    });
+    return now > endDate;
+  })
+  .sort((a, b) => getStartDateTime(a) - getStartDateTime(b));
+
 
     // COMPLETED
-    const completed = searchFiltered.filter(
-        (item) => item?.status === "completed"
-    );
+    const completed = searchFiltered
+    .filter(
+      (item) =>
+        item?.status === "completed" ||
+        item?.status === "user_not_joined"
+    )
+    .sort((a, b) => getStartDateTime(a) - getStartDateTime(b));
+  
 
     let currentList = [];
     if (activeTab === 'upcoming') currentList = upcoming;
@@ -228,7 +245,7 @@ const UserConsultationList = () => {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#F8F4EF" />
-            <MyLoader isVisible={isLoading} />
+            {/* <MyLoader isVisible={isLoading} /> */}
 
             {/* Header Search */}
             <View style={styles.header}>
@@ -248,7 +265,7 @@ const UserConsultationList = () => {
             <View style={styles.tabsContainer}>
                 {[
                     { key: 'upcoming', label: 'Upcoming' },
-                    // { key: 'pending', label: 'Expired' },
+                    { key: 'pending', label: 'Expired' },
                     { key: 'completed', label: 'Completed' },
                 ].map((tab) => (
                     <TouchableOpacity

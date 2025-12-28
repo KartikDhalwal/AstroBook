@@ -22,16 +22,84 @@ import api from '../apiConfig';
 import MyHeader from '../components/MyHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RefreshControl } from 'react-native';
+import IMAGE_BASE_URL from '../imageConfig';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 
 const AstroTalkHome = ({ customerData: propCustomerData }) => {
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const celebListRef = useRef(null);
+
+  const ITEM_WIDTH = SCREEN_WIDTH * 0.65; // card width
+  const SPACING = 16;
+  const TOTAL_ITEM_WIDTH = ITEM_WIDTH + SPACING;
+
   const [reviews, setReviews] = useState([]);
+  const [celebExp, setCelebExp] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [notifications, setNotifications] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [celebrityAstrologers, setCelebrityAstrologers] = useState([]);
+  const [topAstrologers, settopAstrologers] = useState([]);
+
+  const fetchCelebrityAstrologers = async () => {
+    try {
+      const currentTime = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const res = await axios.get(
+        `${api}/astrologer/astrologer_filters?limit=50&hasAvailableSlots=true&currentTime=${currentTime}`
+      );
+
+      if (res?.data?.success) {
+        const allAstrologers = res.data.results || [];
+        console.log(allAstrologers, 'allAstrologers')
+        // 🔥 FILTER BY TITLE
+        const celebrityOnly = allAstrologers.filter(
+          astro => astro?.title === 'Celebrity'
+        );
+
+        const topAstrologersOnly = allAstrologers.filter(
+          astro => astro?.title === 'Top Astrologer'
+        );
+        console.log({ allAstrologers })
+        setCelebrityAstrologers(celebrityOnly);
+        settopAstrologers(topAstrologersOnly);
+      }
+    } catch (err) {
+      console.log("Celebrity astrologer error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCelebrityAstrologers();
+  }, []);
+
+  const fetchAstrologerDetails = async (id, mode = "video") => {
+    try {
+      const response = await axios.post(
+        `${api}/astrologer/get-astrologer-details`,
+        { astrologerId: id },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (response?.data?.success) {
+        navigation.navigate('AstrologerDetailsScreen', {
+          astrologer: response.data.astrologer,
+          mode,
+        });
+      } else {
+        Alert.alert('No Data', 'Astrologer details not found.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch astrologer details.');
+    }
+  };
+
 
   const onRefresh = async () => {
     try {
@@ -48,7 +116,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         })(),
         (async () => {
           const response = await axios.get(
-            `https://api.acharyalavbhushan.com/api/customers/get-feedback`,
+            `${api}/customers/get-feedback`,
             { headers: { 'Content-Type': 'application/json' } }
           );
           if (response?.data?.success) {
@@ -109,7 +177,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
     };
     const fetchReviews = async () => {
       try {
-        const response = await axios.get(`https://api.acharyalavbhushan.com/api/customers/get-feedback`, {
+        const response = await axios.get(`${api}/customers/get-feedback`, {
           headers: { 'Content-Type': 'application/json' },
         });
         console.log(response?.data, 'response?.data')
@@ -120,10 +188,62 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
         console.error("Error reading customerData:", error);
       }
     };
+    const fetchCelebrityExp = async () => {
+      try {
+        const response = await axios.get(`${api}/admin/get_celebrity_experience`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log(response?.data, 'response?.data')
+        if (response?.data?.success) {
+          setCelebExp(response?.data?.data || []);
+        }
+      } catch (error) {
+        console.error("Error reading customerData:", error);
+      }
+    };
 
     fetchCustomer();
+    fetchCelebrityExp();
     fetchReviews();
   }, []);
+  const celebData = React.useMemo(() => {
+    return celebExp.length > 0 ? [...celebExp, ...celebExp] : [];
+  }, [celebExp]);
+  useEffect(() => {
+    if (!celebExp.length) return;
+
+    let offset = 0;
+
+    const interval = setInterval(() => {
+      offset += 3; // speed → smaller = slower
+
+      celebListRef.current?.scrollToOffset({
+        offset,
+        animated: false,
+      });
+
+      // 🔁 reset seamlessly at midpoint
+      if (offset >= celebExp.length * TOTAL_ITEM_WIDTH) {
+        offset = 0;
+        celebListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      }
+    }, 16); // ~60 FPS
+
+    return () => clearInterval(interval);
+  }, [celebExp]);
+  const renderCelebItem = ({ item }) => (
+    <View style={styles.celebCard}>
+      <Image source={{ uri: item.image }} style={styles.celebImage} />
+      <View style={styles.celebOverlay}>
+        <Text style={styles.celebName}>{item.name}</Text>
+        <Text style={styles.celebTitle}>{item.title}</Text>
+      </View>
+    </View>
+  );
+
   useEffect(() => {
     if (reviews.length === 0) return;
 
@@ -185,6 +305,8 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
 
   const getImageUrl = (path) =>
     path?.startsWith('http') ? path : `${BASE_URL}${path}`;
+  const getImageUrl1 = (path) =>
+    path?.startsWith('http') ? path : `${IMAGE_BASE_URL}${path}`;
 
   const youtubeVideos = [
     { id: 1, url: "https://youtu.be/gJcMN2tIVT8?si=uXBmL-MptKmILxde", title: "Astrology & Real Life Incidents" },
@@ -273,6 +395,101 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
   useEffect(() => {
     fetchUpcomingConsultations();
   }, []);
+
+  const combinedAstrologers = React.useMemo(() => {
+    const celebrity = celebrityAstrologers.map(item => ({
+      ...item,
+      _type: 'celebrity',
+    }));
+
+    const top = topAstrologers.map(item => ({
+      ...item,
+      _type: 'top',
+    }));
+
+    return [...celebrity, ...top];
+  }, [celebrityAstrologers, topAstrologers]);
+
+
+  const bannerImages = [
+    {
+      id: '1',
+      image: require('../assets/banners/4.png'),
+      action: {
+        type: 'tab',
+        tab: 'VideoTab',
+        params: { screen: 'VideoTab' },
+      },
+    },
+    {
+      id: '2',
+      image: require('../assets/banners/5.png'),
+      action: {
+        type: 'screen',
+        screen: 'HoroscopeScreen',
+      },
+    },
+    {
+      id: '3',
+      image: require('../assets/banners/6.png'),
+      action: {
+        type: 'tab',
+        tab: 'PoojaTab',
+        params: { screen: 'PoojaTab' },
+      },
+    },
+  ];
+  const onBannerPress = (banner) => {
+    if (!banner?.action) return;
+
+    const { type } = banner.action;
+
+    if (type === 'screen') {
+      navigation.navigate(
+        banner.action.screen,
+        banner.action.params || {}
+      );
+    }
+
+    if (type === 'tab') {
+      navigation.navigate(
+        banner.action.tab,
+        banner.action.params || {}
+      );
+    }
+
+    if (type === 'url') {
+      Linking.openURL(banner.action.url);
+    }
+  };
+
+  const bannerRef = useRef(null);
+  const bannerIndex = useRef(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      bannerIndex.current =
+        (bannerIndex.current + 1) % bannerImages.length;
+
+      bannerRef.current?.scrollToIndex({
+        index: bannerIndex.current,
+        animated: true,
+      });
+    }, 3000); // ⏱ 3 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+  const renderBanner = ({ item }) => (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => onBannerPress(item)}
+      style={styles.bannerSlide}
+    >
+      <Image source={item.image} style={styles.bannerImage} />
+    </TouchableOpacity>
+  );
+
+
   const handleJoin = async (booking) => {
     const raw = await AsyncStorage.getItem("customerData");
     const customer = raw ? JSON.parse(raw) : null;
@@ -289,6 +506,8 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
       {/* <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" /> */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <MyHeader />
+
+
       </SafeAreaView>
       <ScrollView
         style={styles.content}
@@ -310,7 +529,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <Text style={styles.bannerTitleHighlight}>Astrologers</Text>
             <Text style={styles.bannerSubtitle}>Get accurate predictions & personalized remedies</Text>
 
-            <TouchableOpacity style={styles.bannerButton} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
+            <TouchableOpacity style={styles.bannerButton} onPress={() => navigation.navigate('VideoTab', { screen: 'VideoTab' })}>
               <Text style={styles.bannerButtonText}>Consult Now</Text>
               <Icon name="arrow-right" size={24} color="#db9a4a" />
             </TouchableOpacity>
@@ -327,7 +546,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <Text style={styles.statLabel}>Consultations</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>10+</Text>
+            <Text style={styles.statNumber}>15+</Text>
             <Text style={styles.statLabel}>Years of Experience</Text>
           </View>
           <View style={styles.statBox}>
@@ -335,7 +554,7 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             <Text style={styles.statLabel}>Privacy</Text>
           </View>
         </View>
- <View style={styles.section}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Consultations</Text>
             {upcomingConsultations.length !== 0 ? (
@@ -454,44 +673,126 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
             })
           )}
         </View>
+
+        {combinedAstrologers.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Our Astrologers
+              </Text>
+
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('AstrolgersList', {
+                    mode: 'video',
+                  })
+                }
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={combinedAstrologers}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.celebrityCard}>
+                  <Image
+                    source={{ uri: getImageUrl1(item.profileImage) }}
+                    style={styles.celebrityImage}
+                  />
+
+                  {item._type === 'celebrity' && (
+                    <View style={styles.celebrityBadge}>
+                      <Text style={styles.celebrityBadgeText}>Celebrity Astrologer</Text>
+                    </View>
+                  )}
+
+                  {item._type === 'top' && (
+                    <View style={[styles.celebrityBadge, { backgroundColor: '#edc967' }]}>
+                      <Text style={styles.celebrityBadgeText}>Top Astrologer</Text>
+                    </View>
+                  )}
+
+                  <Text style={styles.celebrityName}>
+                    {item.astrologerName}
+                  </Text>
+
+                  <Text style={styles.celebrityExp}>
+                    {item.experience}+ yrs experience
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.viewDetailsBtn}
+                    onPress={() => fetchAstrologerDetails(item._id, 'video')}
+                  >
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          </View>
+        )}
+
+
         {/* Services Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginTop: 12 }]}>
           <Text style={styles.sectionTitle}>Our Services</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'voice' })}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('VoiceTab', { screen: 'VoiceTab' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="phone-in-talk" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Voice Call</Text>
-              {/* <Text style={styles.actionSubtext}>With Expert</Text> */}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'video' })}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('VideoTab', { screen: 'VideoTab' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="video-outline" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Video Call</Text>
-              {/* <Text style={styles.actionSubtext}>Face to Face</Text> */}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AstrolgersList', { mode: 'chat' })}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('ChatTab', { screen: 'ChatTab' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="chat-outline" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Chat</Text>
-              {/* <Text style={styles.actionSubtext}>Instant Reply</Text> */}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PoojaList', { routeMode: false })}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PoojaTab', { screen: 'PoojaTab' })}>
               <View style={[styles.actionIconWrapper, { backgroundColor: '#db9a4a' }]}>
                 <Icon name="campfire" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Book Pooja</Text>
-              {/* <Text style={styles.actionSubtext}>Book Online Puja</Text> */}
             </TouchableOpacity>
           </View>
         </View>
-       
+
+        <View style={styles.bannerWrapper}>
+          <FlatList
+            ref={bannerRef}
+            data={bannerImages}
+            renderItem={renderBanner}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+
+            contentContainerStyle={{
+              paddingHorizontal: 8, // outer spacing
+            }}
+
+            snapToInterval={SCREEN_WIDTH - 20}
+            decelerationRate="fast"
+            disableIntervalMomentum
+          />
+
+        </View>
         {/* Free Services */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -562,11 +863,31 @@ const AstroTalkHome = ({ customerData: propCustomerData }) => {
           </ScrollView>
         </View>
 
+
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Celebrity Experiences</Text>
+
+          <Animated.FlatList
+            ref={celebListRef}
+            data={celebData}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => item._id + index}
+            renderItem={renderCelebItem}
+            scrollEnabled={false} // auto only
+            getItemLayout={(_, index) => ({
+              length: TOTAL_ITEM_WIDTH,
+              offset: TOTAL_ITEM_WIDTH * index,
+              index,
+            })}
+          />
+        </View>
         {/* Special Offerings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Special Offerings</Text>
 
-          <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaList', { routeMode: false })}>
+          <TouchableOpacity style={styles.specialCard} onPress={() => navigation.navigate('PoojaTab', { screen: 'PoojaTab' })}>
             <View style={styles.specialLeft}>
               <Icon name="campfire" size={36} color="#db9a4a" />
             </View>
@@ -689,6 +1010,41 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  celebCard: {
+    width: SCREEN_WIDTH * 0.65,
+    height: 400,
+    marginRight: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+
+  celebImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+
+  celebOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+
+  celebName: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  celebTitle: {
+    color: '#FDE68A',
+    fontSize: 11,
+    marginTop: 2,
   },
 
   consultationCard: {
@@ -862,6 +1218,24 @@ const styles = StyleSheet.create({
   content: {
     // flex: 1,
   },
+  bannerWrapper: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+
+  bannerSlide: {
+    width: SCREEN_WIDTH - 32,
+    height: 190, // 🔥 perfect for auto slider
+  },
+
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 20,
+  },
 
   // Hero Banner
   heroBanner: {
@@ -971,6 +1345,65 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 24,
     paddingHorizontal: 16,
+  },
+  celebrityCard: {
+    width: 170,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 12,
+    marginBottom: 12,
+    elevation: 3,
+  },
+
+  celebrityImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+  },
+
+  celebrityBadge: {
+    position: 'static',
+    top: 10,
+    left: 10,
+    backgroundColor: '#7F1D1D',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  celebrityBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center'
+  },
+
+  celebrityName: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 8,
+    color: '#2C1810',
+  },
+
+  celebrityExp: {
+    fontSize: 12,
+    color: '#777',
+    marginVertical: 4,
+  },
+
+  viewDetailsBtn: {
+    marginTop: 8,
+    backgroundColor: '#db9a4a',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  viewDetailsText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
 
   sectionHeader: {

@@ -129,7 +129,7 @@ const PoojaDetails = () => {
       setCartData(null);
     } catch {
       Toast.show({
-        type: "failed",
+        type: "error",
         text1: "Payment Failed",
         text2: "Payment was cancelled",
       });

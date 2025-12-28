@@ -75,10 +75,34 @@ export default function BottomTabs() {
             navigation.navigate('HomeTab', { screen: 'HomeTab' });
           }
         })} />
-      <Tab.Screen name="VoiceTab" component={VoiceCallStack} options={{ title: "Voice" }} />
-      <Tab.Screen name="VideoTab" component={VideoCallStack} options={{ title: "Video" }} />
-      <Tab.Screen name="ChatTab" component={ChatStack} options={{ title: "Chat" }} />
-      <Tab.Screen name="PoojaTab" component={PoojaStack} options={{ title: "Pooja" }} />
+      <Tab.Screen name="VoiceTab" component={VoiceCallStack} options={{ title: "Voice" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('VoiceTab', { screen: 'VoiceTab' });
+          }
+        })}
+      />
+      <Tab.Screen name="VideoTab" component={VideoCallStack} options={{ title: "Video" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('VideoTab', { screen: 'VideoTab' });
+          }
+        })}
+      />
+      <Tab.Screen name="ChatTab" component={ChatStack} options={{ title: "Chat" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('ChatTab', { screen: 'ChatTab' });
+          }
+        })}
+      />
+      <Tab.Screen name="PoojaTab" component={PoojaStack} options={{ title: "Pooja" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            navigation.navigate('PoojaTab', { screen: 'PoojaTab' });
+          }
+        })}
+      />
     </Tab.Navigator>
   );
 }

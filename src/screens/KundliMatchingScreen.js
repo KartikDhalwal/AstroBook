@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
@@ -22,7 +24,15 @@ const { width } = Dimensions.get("window");
 
 const KundliMatchingScreen = () => {
   const navigation = useNavigation();
+  const scrollRef = useRef(null);
 
+  // Male refs
+  const boyNameRef = useRef(null);
+  const boyPlaceRef = useRef(null);
+  
+  // Female refs
+  const girlNameRef = useRef(null);
+  const girlPlaceRef = useRef(null);
   // --------------------- MALE INPUTS ------------------------
   const [maleInputField, setMaleInputField] = useState({
     name: "",
@@ -60,16 +70,16 @@ const KundliMatchingScreen = () => {
     setInputFieldError({ ...inputFieldError, [name]: value });
 
   // Format date and time
-const formatDate = (date) => {
-  if (!date) return "";
+  const formatDate = (date) => {
+    if (!date) return "";
 
-  return date.toLocaleDateString("en-US", {
-    weekday: "short", // Fri
-    month: "short",   // Dec
-    day: "2-digit",   // 19
-    year: "numeric",  // 2025
-  });
-};
+    return date.toLocaleDateString("en-US", {
+      weekday: "short", // Fri
+      month: "short",   // Dec
+      day: "2-digit",   // 19
+      year: "numeric",  // 2025
+    });
+  };
 
 
   const formatTime = (time) => {
@@ -82,32 +92,61 @@ const formatDate = (date) => {
 
   // ------------------------ VALIDATION -------------------------
   const handleValidation = () => {
+    // Boy name
     if (!maleInputField.name) {
       handleInputFieldError("boysName", "Please enter boy's name");
+  
+      setTimeout(() => {
+        boyNameRef.current?.focus();
+        scrollRef.current?.scrollTo({ y: 400, animated: true });
+      }, 100);
+  
       return false;
     }
+  
+    // Boy place
     if (!maleInputField.place_of_birth) {
       handleInputFieldError(
         "boysPlaceOfBirth",
         "Please select boy's place of birth"
       );
+  
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: 550, animated: true });
+      }, 100);
+  
       return false;
     }
-
+  
+    // Girl name
     if (!femaleInputField.name) {
       handleInputFieldError("girlsName", "Please enter girl's name");
+  
+      setTimeout(() => {
+        girlNameRef.current?.focus();
+        scrollRef.current?.scrollTo({ y: 950, animated: true });
+      }, 100);
+  
       return false;
     }
+  
+    // Girl place
     if (!femaleInputField.place_of_birth) {
       handleInputFieldError(
         "girlsPlaceOfBirth",
         "Please select girl's place of birth"
       );
+  
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: 1100, animated: true });
+      }, 100);
+  
       return false;
     }
-
+  
     return true;
   };
+  
 
   const combineDateAndTime = (dateObj, timeObj) => {
     const d = new Date(dateObj);
@@ -125,7 +164,7 @@ const formatDate = (date) => {
     if (!handleValidation()) return;
 
     const customerData = JSON.parse(await AsyncStorage.getItem("customerData"));
-    console.log(maleInputField,'maleInputField')
+    console.log(maleInputField, 'maleInputField')
     try {
       const payload = {
         maleKundliData: {
@@ -165,8 +204,13 @@ const formatDate = (date) => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 80 : 0}
+    >
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -257,6 +301,7 @@ const formatDate = (date) => {
                     style={styles.inputIcon}
                   />
                   <TextInput
+                    ref={boyNameRef}
                     placeholder="Enter boy's name"
                     placeholderTextColor="#AAA"
                     value={maleInputField.name}
@@ -407,6 +452,7 @@ const formatDate = (date) => {
                     style={styles.inputIcon}
                   />
                   <TextInput
+                   ref={girlNameRef}
                     placeholder="Enter girl's name"
                     placeholderTextColor="#AAA"
                     value={femaleInputField.name}
@@ -528,7 +574,6 @@ const formatDate = (date) => {
             <Text style={styles.bannerButtonText}>
               Get Compatibility Report
             </Text>
-            <Text style={styles.bannerButtonIcon}>→</Text>
           </TouchableOpacity>
         </View>
 
@@ -599,7 +644,7 @@ const formatDate = (date) => {
         {/* Bottom Spacing */}
         <View style={{ height: 28 }} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

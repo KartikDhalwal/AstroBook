@@ -1,5 +1,5 @@
 // screens/AstrologerDetailsScreen.js
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,99 @@ import {
   Dimensions,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import IMAGE_BASE_URL from '../imageConfig';
+import axios from 'axios';
+import api from '../apiConfig';
+
+import { PixelRatio } from 'react-native';
+
+const BASE_WIDTH = 375; // iPhone / standard Android baseline
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const REVIEW_CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.88, 360);
+const REVIEW_CARD_GAP = 16;
+
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+
+// Prevent huge scaling on tablets
+const spacing = (size) => Math.min(scale(size), size * 1.3);
+const H_PADDING = spacing(16);
+
 
 const AstrologerDetailsScreen = ({ route, navigation, }) => {
+  const insets = useSafeAreaInsets(); // 👈 IMPORTANT
+
   const { astrologer, mode } = route.params;
   const expertiseScrollRef = useRef(null);
-  console.log(astrologer, 'astrologer')
+  const reviewSliderRef = useRef(null);
+
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  useEffect(() => {
+    if (!reviews.length) return;
+
+    let index = 0;
+    const timer = setInterval(() => {
+      index = (index + 1) % reviews.length;
+      reviewSliderRef.current?.scrollToIndex({
+        index,
+        animated: true,
+      });
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [reviews]);
+
+
+  useEffect(() => {
+    if (!reviews.length) return;
+
+    let index = 0;
+    const timer = setInterval(() => {
+      index = (index + 1) % reviews.length;
+      reviewSliderRef.current?.scrollToIndex({
+        index,
+        animated: true,
+      });
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [reviews]);
+
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const res = await axios.post(
+        `${api}/admin/get-astrologer-review`,
+        { astrologerId: astrologer?._id },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      console.log(res.data, 'res.data')
+      if (res.data?.success) {
+        setReviews(res.data.reviews || []);
+      }
+    } catch (error) {
+      console.log('Review fetch error:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+  const averageRating =
+    reviews.length > 0
+      ? (
+        reviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+        reviews.length
+      ).toFixed(1)
+      : null;
+
+
   if (!astrologer) {
     return (
       <SafeAreaView style={styles.container}>
@@ -27,17 +112,17 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
     );
   }
 
-const getImageUrl = (path) => {
-  if (!path) return null;
+  const getImageUrl = (path) => {
+    if (!path) return null;
 
-  // If already a full URL
-  if (path.startsWith('http')) {
-    return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
-  }
+    // If already a full URL
+    if (path.startsWith('http')) {
+      return `${path}?format=jpg`; // 👈 fixes RN no-extension issue
+    }
 
-  // Relative path from backend
-  return `${IMAGE_BASE_URL}${path}?format=jpg`;
-};
+    // Relative path from backend
+    return `${IMAGE_BASE_URL}${path}?format=jpg`;
+  };
 
   const scrollLeft = (ref) => {
     ref.current?.scrollToOffset({
@@ -52,15 +137,25 @@ const getImageUrl = (path) => {
       animated: true,
     });
   };
+  const reviewSnapOffsets = reviews.map(
+    (_, index) => index * (REVIEW_CARD_WIDTH + REVIEW_CARD_GAP)
+  );
+
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        {/* <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+
+      <View style={styles.container}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: spacing(120) + insets.bottom },
+          ]}
+
+        >
+          {/* Header */}
+          {/* <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
@@ -73,214 +168,293 @@ const getImageUrl = (path) => {
           <View style={{ width: 40 }} />
         </View> */}
 
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.imageWrapper}>
-            <Image
-              source={{ uri: getImageUrl(astrologer.profileImage) }}
-              style={styles.image}
-            />
-          </View>
-          <Text style={styles.name}>
-            {astrologer.displayName || astrologer.astrologerName}
-          </Text>
-          <Text style={styles.tagline}>{astrologer.tagLine}</Text>
-          <View style={styles.badgesRow}>
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingText}>
-                ⭐ {astrologer.rating || 'New'}
-              </Text>
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            <View style={styles.imageWrapper}>
+              <Image
+                source={{ uri: getImageUrl(astrologer.profileImage) }}
+                style={styles.image}
+              />
             </View>
-            <View style={[styles.infoBadge, { backgroundColor: '#E8F5E9' }]}>
-              <Text style={[styles.infoBadgeText, { color: '#4CAF50' }]}>
-                {astrologer.experience}+ Years
-              </Text>
+            <Text style={styles.name}>
+              {astrologer.displayName || astrologer.astrologerName}
+            </Text>
+            <Text style={styles.tagline}>{astrologer.tagLine}</Text>
+            <View style={styles.badgesRow}>
+              {astrologer.rating !== 0 &&
+              
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingText}>
+                  ⭐ {astrologer.rating || 'New'}
+                </Text>
+              </View>
+              }
+              <View style={[styles.infoBadge, { backgroundColor: '#E8F5E9' }]}>
+                <Text style={[styles.infoBadgeText, { color: '#4CAF50' }]}>
+                  {astrologer.experience}+ Years
+                </Text>
+              </View>
             </View>
-          </View>
-          {/* <Text style={styles.location}>
+            {/* <Text style={styles.location}>
             📍 {astrologer.city}, {astrologer.state}
           </Text> */}
-        </View>
-
-        {/* Quick Info */}
-        <View style={styles.quickInfoContainer}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Languages</Text>
-            <Text style={styles.infoValue}>
-              {astrologer.language?.slice(0, 2).join(', ') || 'N/A'}
-            </Text>
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Consultations</Text>
-            <Text style={styles.infoValue}>500+</Text>
-          </View>
-        </View>
 
-        {/* About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.aboutCard}>
-            <Text style={styles.aboutText}>
-              {astrologer.about ||
-                'Experienced astrologer dedicated to providing insightful guidance and solutions.'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Expertise */}
-        {astrologer.mainExpertise?.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Main Expertise</Text>
-              <View style={styles.arrowContainer}>
-                <TouchableOpacity
-                  style={styles.arrowButton}
-                  onPress={() => scrollLeft(expertiseScrollRef)}
-                >
-                  <Icon name="chevron-left" size={22} color="#db9a4a" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.arrowButton}
-                  onPress={() => scrollRight(expertiseScrollRef)}
-                >
-                  <Icon name="chevron-right" size={22} color="#db9a4a" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            <FlatList
-              ref={expertiseScrollRef}
-              data={astrologer.mainExpertise}
-              horizontal
-              keyExtractor={(item) => item._id}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              renderItem={({ item }) => (
-                <View style={styles.expertiseCard}>
-                  <Image
-                    source={{ uri: getImageUrl(item.image) }}
-                    style={styles.expertiseImage}
-                  />
-                  <Text style={styles.expertiseText}>{item.mainExpertise}</Text>
-                </View>
-              )}
-            />
-          </View>
-        )}
-
-        {/* Skills */}
-        {astrologer.skill?.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Skills & Specializations</Text>
-            <View style={styles.tilesContainer}>
-              {astrologer.skill.map((s, idx) => (
-                <View key={idx} style={styles.skillTile}>
-                  <Icon name="star-outline" size={16} color="#db9a4a" />
-                  <Text style={styles.skillText}>{s.skill}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Remedies */}
-        {astrologer.remedies?.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Remedies Offered</Text>
-            <View style={styles.tilesContainer}>
-              {astrologer.remedies.map((remedy) => (
-                <View key={remedy._id} style={styles.remedyTile}>
-                  <Text style={styles.remedyText}>{remedy.title}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Consultation Prices */}
-        {astrologer.consultationPrices?.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Consultation Packages</Text>
-            {astrologer.consultationPrices.map((item, idx) => (
-              <View key={idx} style={styles.priceCard}>
-                <View style={styles.priceLeft}>
-                  <Text style={styles.durationText}>
-                    {item.duration?.slotDuration} Minutes
-                  </Text>
-                  <Text style={styles.priceSubtext}>
-                    One-on-one consultation
-                  </Text>
-                </View>
-                <View style={styles.priceRight}>
-                  <Text style={styles.priceText}>₹{item.price}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* YouTube Link */}
-        {astrologer.youtubeLink && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Connect on YouTube</Text>
-            <TouchableOpacity style={styles.socialCard} onPress={() => Linking.openURL('https://www.youtube.com/@acharyalavbhushan')}>
-              <Icon name="youtube" size={24} color="#FF0000" />
-              <Text style={styles.socialText} numberOfLines={1}>
-                Acharya Lav Bhushan's Youtube Channel
+          {/* Quick Info */}
+          <View style={styles.quickInfoContainer}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Languages</Text>
+              <Text style={styles.infoValue}>
+                {astrologer.language?.slice(0, 2).join(', ') || 'N/A'}
               </Text>
-            </TouchableOpacity>
+            </View>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Consultations</Text>
+              <Text style={styles.infoValue}>500+</Text>
+            </View>
           </View>
-        )}
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          {/* About */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About</Text>
+            <View style={styles.aboutCard}>
+              <Text style={styles.aboutText}>
+                {astrologer.about ||
+                  'Experienced astrologer dedicated to providing insightful guidance and solutions.'}
+              </Text>
+            </View>
+          </View>
 
-      {/* Sticky Buttons */}
-      <View style={styles.stickyContainer}>
-        {mode === 'voice' ? (
+          {/* Expertise */}
+          {astrologer.mainExpertise?.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Main Expertise</Text>
+                <View style={styles.arrowContainer}>
+                  <TouchableOpacity
+                    style={styles.arrowButton}
+                    onPress={() => scrollLeft(expertiseScrollRef)}
+                  >
+                    <Icon name="chevron-left" size={22} color="#db9a4a" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.arrowButton}
+                    onPress={() => scrollRight(expertiseScrollRef)}
+                  >
+                    <Icon name="chevron-right" size={22} color="#db9a4a" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <FlatList
+                ref={expertiseScrollRef}
+                data={astrologer.mainExpertise}
+                horizontal
+                keyExtractor={(item) => item._id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                renderItem={({ item }) => (
+                  <View style={styles.expertiseCard}>
+                    <Image
+                      source={{ uri: getImageUrl(item.image) }}
+                      style={styles.expertiseImage}
+                    />
+                    <Text style={styles.expertiseText}>{item.mainExpertise}</Text>
+                  </View>
+                )}
+              />
+            </View>
+          )}
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.voiceButton]}
-            onPress={() =>
-              navigation.navigate('SlotDetails', {
-                astrolger: astrologer,
-                mode
-              })
-            }
-          >
-            <Icon name="phone" size={20} color="#fff" />
-            <Text style={styles.actionText}>Voice Call</Text>
-          </TouchableOpacity>
-        ) : null}
-        {mode === 'video' ? (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.videoButton]}
-            onPress={() =>
-              navigation.navigate('SlotDetails', {
-                astrolger: astrologer,
-                mode
-              })
-            }
-          >
-            <Icon name="video" size={20} color="#fff" />
-            <Text style={styles.actionText}>Video Call</Text>
-          </TouchableOpacity>
-        ) : null}
-        {mode === 'chat' ? (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.videoButton]}
-            onPress={() =>
-              navigation.navigate('SlotDetails', {
-                astrolger: astrologer,
-                mode
-              })
-            }
-          >
-            <Icon name="chat" size={20} color="#fff" />
-            <Text style={styles.actionText}>Chat</Text>
-          </TouchableOpacity>
-        ) : null}
+          {/* Skills */}
+          {astrologer.skill?.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Skills & Specializations</Text>
+              <View style={styles.tilesContainer}>
+                {astrologer.skill.map((s, idx) => (
+                  <View key={idx} style={styles.skillTile}>
+                    <Icon name="star-outline" size={16} color="#db9a4a" />
+                    <Text style={styles.skillText}>{s.skill}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Remedies */}
+          {astrologer.remedies?.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Remedies Offered</Text>
+              <View style={styles.tilesContainer}>
+                {astrologer.remedies.map((remedy) => (
+                  <View key={remedy._id} style={styles.remedyTile}>
+                    <Text style={styles.remedyText}>{remedy.title}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Consultation Prices */}
+          {astrologer.consultationPrices?.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Consultation Packages</Text>
+              {astrologer.consultationPrices.map((item, idx) => (
+                <View key={idx} style={styles.priceCard}>
+                  <View style={styles.priceLeft}>
+                    <Text style={styles.durationText}>
+                      {item.duration?.slotDuration} Minutes
+                    </Text>
+                    <Text style={styles.priceSubtext}>
+                      One-on-one consultation
+                    </Text>
+                  </View>
+                  <View style={styles.priceRight}>
+                    <Text style={styles.priceText}>₹{item.price}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+          {/* Reviews Section */}
+          {/* Reviews Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reviews</Text>
+
+            {reviews.length > 0 && (
+              <View style={styles.reviewSummary}>
+                <Text style={styles.avgRating}>⭐ {averageRating}</Text>
+                <Text style={styles.reviewCount}>
+                  {reviews.length} Reviews
+                </Text>
+              </View>
+            )}
+
+            {loadingReviews ? (
+              <Text style={styles.loadingText}>Loading reviews...</Text>
+            ) : reviews.length === 0 ? (
+              <View style={styles.emptyReview}>
+                <Text style={styles.emptyReviewText}>
+                  No reviews yet
+                </Text>
+              </View>
+            ) : (
+              <View style={{ marginHorizontal: -H_PADDING }}>
+                <FlatList
+                  ref={reviewSliderRef}
+                  data={reviews}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+
+                  snapToOffsets={reviewSnapOffsets}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+
+                  keyExtractor={(_, index) => index.toString()}
+
+                  contentContainerStyle={{
+                    paddingHorizontal: (SCREEN_WIDTH - REVIEW_CARD_WIDTH) / 2,
+                  }}
+
+                  ItemSeparatorComponent={() => (
+                    <View style={{ width: REVIEW_CARD_GAP }} />
+                  )}
+
+                  renderItem={({ item }) => (
+                    <View style={[styles.reviewCard, { width: REVIEW_CARD_WIDTH, marginBottom: 4 }]}>
+                      <View style={styles.reviewHeader}>
+                        <Text style={styles.reviewUser}>
+                          {item.customerName || 'Anonymous'}
+                        </Text>
+                        <Text style={styles.reviewRating}>⭐ {item.rating}</Text>
+                      </View>
+
+                      <Text style={styles.reviewText} numberOfLines={4}>
+                        {item.reviewText || 'No comment provided'}
+                      </Text>
+
+                      <Text style={styles.reviewDate}>
+                        {new Date(item.createdAt).toDateString()}
+                      </Text>
+                    </View>
+                  )}
+                />
+              </View>
+
+            )}
+          </View>
+
+
+          {/* YouTube Link */}
+          {astrologer?.youtubeLink && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Connect on YouTube</Text>
+              <TouchableOpacity style={styles.socialCard} onPress={() => Linking.openURL('https://www.youtube.com/@acharyalavbhushan')}>
+                <Icon name="youtube" size={24} color="#FF0000" />
+                <Text style={styles.socialText} numberOfLines={1}>
+                  Acharya Lav Bhushan's Youtube Channel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* Sticky Buttons */}
+        <View
+          style={[
+            styles.stickyContainer,
+            { paddingBottom: 12 + insets.bottom },
+          ]}
+        >
+
+          {mode === 'voice' ? (
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.voiceButton]}
+              onPress={() =>
+                navigation.navigate('SlotDetails', {
+                  astrolger: astrologer,
+                  mode
+                })
+              }
+            >
+              <Icon name="phone" size={20} color="#fff" />
+              <Text style={styles.actionText}>Voice Call</Text>
+            </TouchableOpacity>
+          ) : null}
+          {mode === 'video' ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.videoButton]}
+              onPress={() =>
+                navigation.navigate('SlotDetails', {
+                  astrolger: astrologer,
+                  mode
+                })
+              }
+            >
+              <Icon name="video" size={20} color="#fff" />
+              <Text style={styles.actionText}>Video Call</Text>
+            </TouchableOpacity>
+          ) : null}
+          {mode === 'chat' ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.videoButton]}
+              onPress={() =>
+                navigation.navigate('SlotDetails', {
+                  astrolger: astrologer,
+                  mode
+                })
+              }
+            >
+              <Icon name="chat" size={20} color="#fff" />
+              <Text style={styles.actionText}>Chat</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
+
   );
 };
 
@@ -292,11 +466,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F4EF',
   },
-
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: spacing(120),
   },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,7 +478,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     elevation: 2,
   },
-
   backButton: {
     width: 40,
     height: 40,
@@ -315,7 +486,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   title: {
     fontSize: 18,
     fontWeight: '700',
@@ -324,8 +494,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 8,
   },
-
-  // Profile Card
   profileCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -339,7 +507,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-
   imageWrapper: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -347,7 +514,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-
   image: {
     width: 120,
     height: 120,
@@ -355,7 +521,16 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFD580',
   },
-
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 3,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8F4EF',
+  },
   name: {
     fontSize: 22,
     fontWeight: '700',
@@ -363,7 +538,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
-
   tagline: {
     fontSize: 14,
     color: '#666',
@@ -373,15 +547,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 20,
   },
-
-  // Badges Row
   badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 12,
     gap: 8,
   },
-
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -390,40 +561,33 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-
   ratingText: {
     fontSize: 14,
     color: '#db9a4a',
     fontWeight: '600',
   },
-
   infoBadge: {
     backgroundColor: '#E8F5E9',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
-
   infoBadgeText: {
     fontSize: 12,
     color: '#4CAF50',
     fontWeight: '600',
   },
-
   location: {
     fontSize: 13,
     color: '#777',
     marginTop: 10,
   },
-
-  // Quick Info Container
   quickInfoContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 12,
+    paddingHorizontal: H_PADDING,
+    marginTop: spacing(16),
+    gap: spacing(12),
   },
-
   infoCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -436,45 +600,99 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-
   infoLabel: {
     fontSize: 12,
     color: '#999',
     marginBottom: 4,
   },
-
   infoValue: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2C1810',
   },
-
-  // Section Styles
   section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
+    marginTop: spacing(20),
+    paddingHorizontal: H_PADDING,
   },
-
+  reviewSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  avgRating: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#db9a4a',
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  reviewUser: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2C1810',
+  },
+  reviewRating: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#db9a4a',
+  },
+  reviewText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  noComment: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#999',
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'right',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  emptyReview: {
+    backgroundColor: '#FFF9F0',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyReviewText: {
+    fontSize: 14,
+    color: '#999',
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 0,
   },
-
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2C1810',
-    marginBottom: 8,
+    marginBottom: spacing(8),
   },
-
-  // Arrow Container
   arrowContainer: {
     flexDirection: 'row',
     gap: 8,
   },
-
   arrowButton: {
     width: 32,
     height: 32,
@@ -483,8 +701,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // About Card
   aboutCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -663,19 +879,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    paddingTop: 12,          // 👈 split padding
+    elevation: 10,
     borderTopWidth: 1,
     borderTopColor: '#F0E8DC',
   },
+
 
   actionButton: {
     flex: 1,

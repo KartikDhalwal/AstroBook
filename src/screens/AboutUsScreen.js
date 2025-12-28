@@ -26,60 +26,53 @@ const AboutUsScreen = ({ navigation }) => {
         >
           {/* Hero Section */}
           <View style={styles.heroCard}>
-            <View style={styles.heroTextContainer}>
-              <Text style={styles.heroSubtitle}>
-                Celebrity Astrologer | Vastu Expert | Life Coach
-              </Text>
-              <Text style={styles.heroTitle}>
-                Get One-to-One Consultation from Acharya LavBhushan
-              </Text>
-              <Text style={styles.heroDescription}>
-                Acharya LavBhushan is a renowned Vedic astrologer and Vastu
-                expert known for accurate predictions, practical remedies and
-                result-oriented guidance in career, marriage, finance, health,
-                business and overall life decisions.
-              </Text>
+            <View style={styles.heroImageWrapper}>
+              <Image
+                source={require("../assets/images/aboutUsHeader.png")}
+                style={styles.heroImage}
+              />
+
               <TouchableOpacity
-                style={styles.primaryButton}
+                style={styles.heroButton}
                 onPress={handleBookNow}
-                activeOpacity={0.8}
+                activeOpacity={0.9}
               >
-                <Text style={styles.primaryButtonText}>
-                  Book Consultation
-                </Text>
+                <Text style={styles.heroButtonText}>Book Consultation</Text>
               </TouchableOpacity>
             </View>
-
-            <Image
-              source={{
-                uri: "https://www.acharyalavbhushan.com/achaarya_lavbhoosan.png",
-              }}
-              style={styles.heroImage}
-            />
           </View>
+
 
           {/* About / Story Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About Acharya LavBhushan</Text>
+            <Text style={styles.sectionTitle}>About AstroBook</Text>
             <Text style={styles.sectionBodyText}>
-              Acharya LavBhushan has spent years studying and practicing Vedic
-              astrology, Vastu Shastra and related occult sciences. His approach
-              combines traditional shastra-based wisdom with a very practical
-              and modern outlook, so that guidance is not only spiritually
-              correct but also implementable in daily life.
+              AstroBook is a modern astrology and spiritual guidance platform designed to help you gain clarity, confidence and direction at every important phase of life.
+              We bring together celebrity astrologers, Vedic experts, vastu consultants and life guidance specialists on one trusted app — making authentic astrology accessible, personal and truly life-changing.
+              Whether you are facing questions around career, marriage, relationships, finance, health, business or personal growth, AstroBook connects you with the right expert at the right time.
+            </Text>
+            <Text style={styles.sectionTitle}>Our Experts</Text>
+            <Text style={styles.sectionBodyText}>
+              AstroBook is proud to partner with renowned and trusted astrologers, including Celebrity Astrologer Acharya LavBhushan, along with a curated panel of experienced professionals from different streams of astrology and occult sciences.
             </Text>
             <Text style={styles.sectionBodyText}>
-              Over the years, he has guided people from all walks of life –
-              students, professionals, business owners, homemakers and
-              celebrities – helping them understand their horoscope, current
-              planetary periods, upcoming opportunities and challenges, and the
-              right timing for important decisions.
+              Each expert on AstroBook is:
             </Text>
             <Text style={styles.sectionBodyText}>
-              Every consultation is done personally with patience and clarity.
-              Rather than creating fear, the focus is always on showing the
-              right direction and giving you the confidence to move ahead with a
-              clear mind.
+              Carefully vetted for knowledge, experience and ethics
+              Trained to provide clear, practical and fear-free guidance
+              Committed to confidentiality, honesty and user well-being
+              You can choose an astrologer that resonates with you and consult via chat, call or video, from anywhere in the world.
+            </Text>
+            <Text style={styles.sectionTitle}>Astro Guidance</Text>
+            <Text style={styles.sectionBodyText}>
+              At AstroBook, astrology is not just about predictions — it is about empowerment.
+              Our consultations focus on:
+              Understanding your horoscope and planetary periods
+              Identifying opportunities, challenges and correct timing
+              Reducing confusion and anxiety
+              Helping you take informed, confident life decisions
+              The goal is always clarity, balance and inner peace — not dependency or fear.
             </Text>
           </View>
 
@@ -224,7 +217,7 @@ const AboutUsScreen = ({ navigation }) => {
               <View style={styles.timelineItem}>
                 <View style={styles.timelineDot} />
                 <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>1. Share Your Details</Text>
+                  <Text style={styles.timelineTitle}>Share Your Details</Text>
                   <Text style={styles.timelineText}>
                     You provide your birth date, time, place and a short note
                     about the main issues or questions you want to discuss
@@ -237,7 +230,7 @@ const AboutUsScreen = ({ navigation }) => {
                 <View style={styles.timelineDot} />
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelineTitle}>
-                    2. Horoscope Preparation
+                    Horoscope Preparation
                   </Text>
                   <Text style={styles.timelineText}>
                     Your kundli is prepared and examined in depth – including
@@ -251,7 +244,7 @@ const AboutUsScreen = ({ navigation }) => {
                 <View style={styles.timelineDot} />
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelineTitle}>
-                    3. One-to-One Discussion
+                    One-to-One Discussion
                   </Text>
                   <Text style={styles.timelineText}>
                     In the live session, you get clear explanations, timing
@@ -265,7 +258,7 @@ const AboutUsScreen = ({ navigation }) => {
                 <View style={styles.timelineDot} />
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelineTitle}>
-                    4. Remedies & Follow-Up
+                    Remedies & Follow-Up
                   </Text>
                   <Text style={styles.timelineText}>
                     Simple, doable remedies are suggested. Where needed, puja,
@@ -280,14 +273,14 @@ const AboutUsScreen = ({ navigation }) => {
           {/* USPs / Values */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Why Choose Acharya LavBhushan?
+              Why Choose AstroBook?
             </Text>
 
             <View style={styles.valuesRow}>
-              <View style={styles.valueChip}>
+              {/* <View style={styles.valueChip}>
                 <Icon name="clock-outline" size={18} color="#B6732F" />
                 <Text style={styles.valueChipText}>24x7 Chat Support</Text>
-              </View>
+              </View> */}
               <View style={styles.valueChip}>
                 <Icon name="account-group-outline" size={18} color="#B6732F" />
                 <Text style={styles.valueChipText}>
@@ -349,11 +342,11 @@ export default AboutUsScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FDF7EE",
+    backgroundColor: "#fffff8",
   },
   container: {
     flex: 1,
-    backgroundColor: "#FDF7EE",
+    backgroundColor: "#fffff8",
   },
   header: {
     flexDirection: "row",
@@ -375,18 +368,52 @@ const styles = StyleSheet.create({
   /* Hero */
   heroCard: {
     flexDirection: "row",
-    backgroundColor: "#FFF8ED",
-    borderRadius: 18,
+    backgroundColor: "#fffff8",
+    // borderRadius: 18,
     padding: 16,
-    marginTop: 10,
+    // marginTop: 10,
     marginBottom: 18,
     alignItems: "center",
-    elevation: 2,
-    shadowColor: "#00000030",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
+    // elevation: 2,
+    // shadowColor: "#00000030",
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.18,
+    // shadowRadius: 4,
   },
+  heroImageWrapper: {
+    position: "relative",
+    width: "100%",
+    alignItems: "center",
+  },
+
+  heroImage: {
+    width: 600,
+    height: 280,
+    resizeMode: "contain",
+    borderRadius: 16,
+  },
+
+  heroButton: {
+    position: "absolute",
+    bottom: 16,
+    alignSelf: "center",
+    backgroundColor: "#B6732F",
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+
+  heroButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
   heroTextContainer: {
     flex: 1.4,
     paddingRight: 8,
@@ -396,14 +423,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#B6732F",
     marginBottom: 4,
-    width:1000
+    width: 1000
   },
   heroTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: "#1A1A1A",
     marginBottom: 6,
-    width:280
+    width: 280
   },
   heroDescription: {
     fontSize: 13,
@@ -411,11 +438,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 10,
   },
-  heroImage: {
-    flex: 1,
-    height: 110,
-    borderRadius: 14,
-  },
+
 
   primaryButton: {
     backgroundColor: "#B6732F",

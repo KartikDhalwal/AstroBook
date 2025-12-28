@@ -28,7 +28,7 @@ import { KeyboardAvoidingView } from 'react-native';
 
 const { width } = Dimensions.get('screen');
 
-const SignUp = ({ navigation, route }) => {
+const SignUpLogin = ({ navigation, route }) => {
   const { customer, isProfile, isLogin } = route.params || {};
 
   const [customerName, setCustomerName] = useState('');
@@ -45,7 +45,6 @@ const SignUp = ({ navigation, route }) => {
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [isProfileEditing, setIsProfileEditing] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -67,7 +66,7 @@ const SignUp = ({ navigation, route }) => {
           return;
         }
 
-        if (!isValidEmail(email?.trim())) {
+        if (!isValidEmail(email)) {
           Alert.alert("Invalid Email", "Please enter a valid email address");
           return;
         }
@@ -78,8 +77,8 @@ const SignUp = ({ navigation, route }) => {
       const payload = {
         customerId: customerId,
         ...(type === "email"
-          ? { email : email?.trim()}
-          : { phoneNumber:phoneNumber?.trim() }),
+          ? { email }
+          : { phoneNumber }),
       };
 
       const res = await axios.post(
@@ -127,8 +126,8 @@ const SignUp = ({ navigation, route }) => {
         customerId: customerId,
         otp,
         ...(otpFor === "email"
-          ? { email:email?.trim() }
-          : { phoneNumber:phoneNumber?.trim() }),
+          ? { email }
+          : { phoneNumber }),
       };
 
       const res = await axios.post(
@@ -225,6 +224,7 @@ const SignUp = ({ navigation, route }) => {
       setPhoneNumber(data.phoneNumber || '');
       setEmail(data.email || '');
       setGender(data.gender || '');
+      setEmail(data.email || '');
 
       if (data.dateOfBirth) setDateOfBirth(new Date(data.dateOfBirth));
       if (data.timeOfBirth) setTimeOfBirth(new Date(data.timeOfBirth));
@@ -300,10 +300,7 @@ const SignUp = ({ navigation, route }) => {
     if (!customerName || !gender || !dateOfBirth || !timeOfBirth || !placeOfBirth || !phoneNumber) {
       return Alert.alert('Error', 'Please fill all required fields');
     }
-    if (email && !isValidEmail(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address");
-      return;
-    }
+
     const [firstName, ...rest] = customerName.trim().split(' ');
     const lastName = rest.join(' ');
 
@@ -314,8 +311,8 @@ const SignUp = ({ navigation, route }) => {
         customerId: customerId,
         firstName,
         lastName,
-        email,
         gender,
+        email,
         dateOfBirth: moment(dateOfBirth).toISOString(),
         timeOfBirth: moment(timeOfBirth).toISOString(),
         placeOfBirth,
@@ -348,7 +345,6 @@ const SignUp = ({ navigation, route }) => {
           'customerData',
           JSON.stringify(updatedProfile)
         );
-        setIsProfileEditing(false)
         // if (isLogin) {
         navigation.reset({
           index: 0,
@@ -379,10 +375,10 @@ const SignUp = ({ navigation, route }) => {
   const Required = () => <Text style={{ color: 'red' }}> *</Text>;
   return (
     <KeyboardAvoidingView
-  style={{ flex: 1 }}
-  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-  keyboardVerticalOffset={Platform.OS === 'android' ? 80 : 0}
->
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 80 : 0}
+    >
 
       {/* <View style={styles.topEditBar}>
         <TouchableOpacity
@@ -419,20 +415,19 @@ const SignUp = ({ navigation, route }) => {
               />
             )}
 
-            {isProfileEditing &&
 
-              <TouchableOpacity
-                style={styles.cameraIcon}
-                onPress={() => setModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons
-                  name="camera"
-                  size={20}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-            }
+            <TouchableOpacity
+              style={styles.cameraIcon}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="camera"
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+
           </View>
         </View>
 
@@ -444,93 +439,11 @@ const SignUp = ({ navigation, route }) => {
             value={customerName}
             onChangeText={setCustomerName}
             style={styles.textInput}
-            editable={isProfileEditing}
 
           />
         </View>
 
-        {/* Phone (DISABLED) */}
-        <Text style={styles.label}>Mobile Number<Required /></Text>
-        <View style={styles.inputWrapper}>
-          <MaterialCommunityIcons name="phone" size={20} color="#db9a4a" />
-          <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            style={styles.textInput}
-            keyboardType="phone-pad"
-            maxLength={10}
-            editable={isEditingPhone}
-          />
-          {isProfileEditing && (
-            !isEditingPhone ? (
-              <TouchableOpacity
-                onPress={() => setIsEditingPhone(true)}
-                style={styles.iconButton}
-              >
-                <MaterialCommunityIcons
-                  name="pencil-outline"
-                  size={20}
-                  color="#db9a4a"
-                />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.inlineOtpButton}
-                onPress={() => sendUpdateOtp("phone")}
-                disabled={loading}
-              >
-                <Text style={styles.inlineOtpText}>
-                  {loading && otpFor === "phone" ? "SENDING..." : "SEND OTP"}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
 
-
-
-
-
-        <Text style={styles.label}>Email</Text>
-        <View style={styles.inputWrapper}>
-          <MaterialCommunityIcons name="email-outline" size={20} color="#db9a4a" />
-
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            style={styles.textInput}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={isEditingEmail}
-          />
-          {isProfileEditing && (
-            !isEditingEmail ? (
-              /* ✏️ EDIT ICON */
-              <TouchableOpacity
-                onPress={() => setIsEditingEmail(true)}
-                style={styles.iconButton}
-              >
-                <MaterialCommunityIcons
-                  name="pencil-outline"
-                  size={20}
-                  color="#db9a4a"
-                />
-              </TouchableOpacity>
-            ) : (
-              /* SEND OTP */
-              <TouchableOpacity
-                style={styles.inlineOtpButton}
-                onPress={() => sendUpdateOtp("email")}
-                disabled={loading}
-              >
-                <Text style={styles.inlineOtpText}>
-                  {loading && otpFor === "email" ? "SENDING..." : "SEND OTP"}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-
-        </View>
 
         <Modal
           isVisible={otpModalVisible}
@@ -579,7 +492,6 @@ const SignUp = ({ navigation, route }) => {
           {['Male', 'Female'].map(g => (
             <TouchableOpacity
               key={g}
-              disabled={!isProfileEditing}
 
               style={[styles.genderButton, gender === g && styles.genderButtonActive]}
               onPress={() => setGender(g)}>
@@ -590,7 +502,7 @@ const SignUp = ({ navigation, route }) => {
 
         {/* DOB */}
         <Text style={styles.label}>Date of Birth<Required /></Text>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputWrapper} disabled={!isProfileEditing}>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputWrapper}>
           <MaterialCommunityIcons name="calendar" size={20} color="#db9a4a" />
           <Text style={styles.textInput}>
             {dateOfBirth ? formatDobDisplay(dateOfBirth) : 'Select date of birth'}
@@ -610,7 +522,7 @@ const SignUp = ({ navigation, route }) => {
 
         {/* TOB */}
         <Text style={styles.label}>Time of Birth<Required /></Text>
-        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.inputWrapper} disabled={!isProfileEditing}>
+        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.inputWrapper}>
           <MaterialCommunityIcons name="clock-outline" size={20} color="#db9a4a" />
           <Text style={styles.textInput}>
             {timeOfBirth ? moment(timeOfBirth).format('hh:mm A') : 'Select time of birth'}
@@ -635,7 +547,6 @@ const SignUp = ({ navigation, route }) => {
 
         <PlaceInput
           value={placeOfBirth}
-          disabled={!isProfileEditing}
           containerStyle={styles.inputWrapper}
           inputStyle={styles.textInput}
           iconColor="#db9a4a"
@@ -666,29 +577,20 @@ const SignUp = ({ navigation, route }) => {
         {/* )} */}
       </ScrollView>
       <View style={styles.fixedFooter}>
-        {isProfileEditing ? (
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isLoading && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={isLoading}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.submitText}>
-              {isLoading ? 'Submitting...' : 'SUBMIT'}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={() => setIsProfileEditing(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.submitText}>EDIT</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            isLoading && styles.submitButtonDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={isLoading}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.submitText}>
+            {isLoading ? 'Submitting...' : 'SUBMIT'}
+          </Text>
+        </TouchableOpacity>
+
       </View>
 
 
@@ -721,7 +623,7 @@ const SignUp = ({ navigation, route }) => {
   );
 };
 
-export default SignUp;
+export default SignUpLogin;
 
 /* ---------- STYLES ---------- */
 const styles = StyleSheet.create({
@@ -819,14 +721,14 @@ const styles = StyleSheet.create({
 
   fixedFooter: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 10 : 0,
+    bottom: 0,
     left: 0,
     right: 0,
     padding: 16,
     backgroundColor: '#FAF8F5',
     borderTopWidth: 1,
     borderTopColor: '#E8E4DC',
-  },  
+  },
 
   submitButton: {
     backgroundColor: '#db9a4a',

@@ -9,7 +9,7 @@ import {
   Image,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import MyStatusBar from '../../components/MyStatusbar';
 import { colors, Fonts } from '../../config/Constants1';
 import {
@@ -32,6 +32,7 @@ import DeviceInfo from 'react-native-device-info'; // ✅ For device_id
 import api from '../../apiConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import { navigationRef } from '../../navigation/navigationRef';
 
 const { width } = Dimensions.get('screen');
 const CELL_COUNT = 4;
@@ -87,48 +88,47 @@ const Otp = (props) => {
         `${api}/customers/verify-customer`,
         payload
       );
-
+      console.log(response.data,'responseresponse')
       const res = response.data;
-
       if (res.success) {
-        await AsyncStorage.setItem('customerData', JSON.stringify(res.customer));
+        await AsyncStorage.setItem(
+          'customerData',
+          JSON.stringify(res.customer)
+        );
         await AsyncStorage.setItem('isLoggedIn', 'true');
 
-        if (
-          res?.customer.customerName === '' ||
-          res?.customer.phoneNumber === '' ||
-          res?.customer.gender === '' ||
-          res?.customer.dateOfBirth === '' ||
-          res?.customer.timeOfBirth === ''
-        ) {
-          Toast.show({
-            type: "success",
-            text1: "OTP Verified",
-            text2: "Please fill your details!",
-          });
-          navigation.reset({
-            index: 0,
-            routes: [
-              {
-                name: 'SignUp',
-                params: { phoneNumber, customer: res.customer },
-                isLogin: true
-              },
-            ],
-          })
-        } else {
-          Toast.show({
-            type: "success",
-            text1: "OTP Verified!",
-            text2: res.message || "OTP Verified successfully!",
-          });
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'MainTabs' }],
-          })
+        Toast.show({
+          type: 'success',
+          text1: 'OTP Verified!',
+          text2: res.message || 'Login successful',
+        });
+        const customer = res?.customer
+        const phone = customer?.phoneNumber?.trim();
+        const customerName = customer?.customerName?.trim();
+        const gender = customer?.gender?.trim();
+        const dateOfBirth = customer?.dateOfBirth?.trim();
+        const timeOfBirth = customer?.timeOfBirth?.trim();
+        const birthPlace = customer?.address?.birthPlace?.trim();
 
+        const isPhoneMissing = !phone;
+        const iscustomerName = !customerName;
+        const isgender = !gender;
+        const isdateOfBirth = !dateOfBirth;
+        const istimeOfBirth = !timeOfBirth;
+        const isbirthPlace = !birthPlace;
+        if (isPhoneMissing) {
+          redirectToContactDetails({
+            customerId: customer?._id || '',
+          });
+          return;
+        } else if (iscustomerName && isgender && isdateOfBirth && istimeOfBirth && isbirthPlace) {
+          redirectToSignUpLogin();
+          return
+        }else{
+          navigation.replace('MainTabs');
         }
-      } else {
+      }
+      else {
         Alert.alert('Error', res.message || 'Verification failed.');
       }
     } catch (error) {
@@ -138,7 +138,29 @@ const Otp = (props) => {
       setIsLoading(false);
     }
   };
+  function redirectToContactDetails(params = {}) {
+    if (!navigationRef.isReady()) {
+      setTimeout(() => redirectToContactDetails(params), 100);
+      return;
+    }
 
+    navigation.navigate('ContactDetailsScreen', {
+      params
+    });
+  }
+  function redirectToSignUpLogin() {
+    if (!navigationRef.isReady()) {
+      setTimeout(() => redirectToSignUpLogin(), 100);
+      return;
+    }
+
+    navigationRef.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'SignUpLogin' }],
+      })
+    );
+  }
 
   const resendOtp = async () => {
     setCounter(60);

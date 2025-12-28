@@ -30,7 +30,6 @@ const KundliScreen = () => {
   const [dob, setDob] = useState(""); // YYYY-MM-DD
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
-  const [amPm, setAmPm] = useState("AM");
   const [place, setPlace] = useState("");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
@@ -50,12 +49,7 @@ const KundliScreen = () => {
     if (!stored) return null;
     return JSON.parse(stored)._id;
   };
-  const to24Hour = (h, amPm) => {
-    let hour = parseInt(h, 10);
-    if (amPm === "PM" && hour !== 12) hour += 12;
-    if (amPm === "AM" && hour === 12) hour = 0;
-    return String(hour).padStart(2, "0");
-  };
+
 
   // Load kundlis
   const loadKundlis = async () => {
@@ -64,6 +58,7 @@ const KundliScreen = () => {
       const customerId = await getCustomerId();
       if (!customerId) return;
       const res = await axios.post(GET_KUNDLI_API, { customerId });
+      console.log(res?.data?.kundli,'res?.data?.kundli')
       setKundlis(res?.data?.kundli || []);
     } catch (err) {
       console.log("Error loading kundlis:", err);
@@ -114,8 +109,7 @@ const KundliScreen = () => {
       }
 
       const finalDob = `${dob}T00:00:00.000Z`;
-      const hour24 = to24Hour(hour, amPm);
-      const finalTob = `${dob}T${hour24}:${minute}:00`;
+      const finalTob = `${dob}T${hour}:${minute}:00`;
 
       const payload = {
         customerId,
@@ -127,7 +121,7 @@ const KundliScreen = () => {
         lat,
         lon,
       };
-
+      console.log(payload,'payload')
       await axios.post(ADD_KUNDLI_API, payload);
 
       Toast.show({
@@ -140,7 +134,6 @@ const KundliScreen = () => {
       setDob("");
       setHour("");
       setMinute("");
-      setAmPm("AM");
       setPlace("");
       setLat("");
       setLon("");
@@ -180,23 +173,17 @@ const KundliScreen = () => {
   };
 
   const formatDateTime = (dateString, timeString) => {
-    // Date (safe)
     const date = new Date(dateString);
     const dateStr = date.toDateString();
-
-    // Time (SAFE – NO Date object)
+  
     const [, timePart] = timeString.split("T"); // HH:mm:ss
-    const [h, m] = timePart.split(":").map(Number);
-
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hour12 = h % 12 || 12;
-
-    const timeStr = `${hour12.toString().padStart(2, "0")}:${m
-      .toString()
-      .padStart(2, "0")} ${ampm}`;
-
+    const [h, m] = timePart.split(":");
+  
+    const timeStr = `${h}:${m}`; // ✅ 24-hour
+  
     return { date: dateStr, time: timeStr };
   };
+  
 
   const formatDobDisplay = (dob) => {
     if (!dob) return '';
@@ -401,7 +388,7 @@ const KundliScreen = () => {
               >
                 <Icon name="clock-outline" size={20} color="#999" style={styles.inputIcon} />
                 <Text style={styles.textInput}>
-                  {hour && minute ? `${hour}:${minute} ${amPm}` : "Select time of birth"}
+                {hour && minute ? `${hour}:${minute}` : "Select time of birth"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -464,29 +451,27 @@ const KundliScreen = () => {
         />
       )}
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={timeObj || new Date()}
-          mode="time"
-          display="spinner"
-          onChange={(event, selectedTime) => {
-            setShowTimePicker(false);
-            if (!selectedTime) return;
+{showTimePicker && (
+  <DateTimePicker
+    value={timeObj || new Date()}
+    mode="time"
+    display="spinner"
+    is24Hour={true}   // ✅ IMPORTANT
+    onChange={(event, selectedTime) => {
+      setShowTimePicker(false);
+      if (!selectedTime) return;
 
-            setTimeObj(selectedTime);
+      setTimeObj(selectedTime);
 
-            let h = selectedTime.getHours();
-            let m = selectedTime.getMinutes();
-            const ampm = h >= 12 ? "PM" : "AM";
+      const h = selectedTime.getHours();   // 0–23
+      const m = selectedTime.getMinutes();
 
-            h = h % 12 || 12;
+      setHour(String(h).padStart(2, "0"));
+      setMinute(String(m).padStart(2, "0"));
+    }}
+  />
+)}
 
-            setHour(String(h).padStart(2, "0"));
-            setMinute(String(m).padStart(2, "0"));
-            setAmPm(ampm);
-          }}
-        />
-      )}
 
     </View>
   );

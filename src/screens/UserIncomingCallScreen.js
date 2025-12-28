@@ -252,7 +252,12 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
 
         // 🔴 CLEAN UP LOCALLY FIRST
         cleanupAndExit();
-
+        console.log({
+            channelName,
+            bookingId: booking?._id,
+            endedBy: "user",
+            reason,
+        })
         // 🔵 THEN NOTIFY SERVER (best-effort)
         if (socket && socket.connected) {
             socket.emit("call:end", {
