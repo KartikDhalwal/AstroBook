@@ -311,19 +311,43 @@ export default function ChatScreen({ route }) {
     });
 
     s.on("message_delivered_normal", ({ tempId, messageId }) => {
-      if (!tempId || !messageId) return;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId ? { ...m, id: messageId, status: "delivered" } : m
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === tempId
+            ? { ...m, id: messageId, status: "delivered" }
+            : m
         )
       );
     });
+    
 
     s.on("message_read_normal", ({ messageId }) => {
-      updateMessageStatus(messageId, "read");
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === messageId && m.senderId === userId
+            ? { ...m, status: "read" }
+            : m
+        )
+      );
     });
+    
   };
-
+  useEffect(() => {
+    if (!messages.length) return;
+  
+    const latest = messages[0];
+  
+    if (
+      latest.receiverId === userId &&
+      socketRef.current?.connected
+    ) {
+      socketRef.current.emit("read_message_normal", {
+        messageId: latest.id,
+        userId,
+      });
+    }
+  }, [messages]);
+  
 
   const onReceiveMessage = (message) => {
     if (message.senderId === userId) return;
@@ -386,8 +410,8 @@ export default function ChatScreen({ route }) {
     };
 
     const local = { ...payload, id: tempId, status: "sent" };
-
-    setMessages((prev) => [local, ...prev]); // 👈 PREPEND
+    setMessages(prev => [local, ...prev]);
+    
     setInputText("");
     setIsTyping(false);
 
@@ -434,15 +458,14 @@ export default function ChatScreen({ route }) {
   const renderMessageStatus = (status) => {
     switch (status) {
       case "sent":
-        return <Icon name="check" size={moderateScale(14)} color="rgba(255,255,255,0.8)" />;
+        return <Icon name="check" />;
       case "delivered":
-        return <Icon name="check-all" size={moderateScale(14)} color="rgba(255,255,255,0.8)" />;
+        return <Icon name="check-all" />;
       case "read":
-        return <Icon name="check-all" size={moderateScale(14)} color="#FCD34D" />;
-      default:
-        return <Icon name="clock-outline" size={moderateScale(14)} color="rgba(255,255,255,0.6)" />;
+        return <Icon name="check-all" color="#FCD34D" />;
     }
   };
+  
 
   const renderMessage = ({ item, index }) => {
     const isMine = item.senderId === userId;
@@ -471,7 +494,7 @@ export default function ChatScreen({ route }) {
           <Text style={[styles.messageText, isMine ? styles.myMessageText : styles.theirMessageText]}>{item.text}</Text>
           <View style={styles.footerRow}>
             <Text style={[styles.messageTime, isMine ? styles.myMessageTime : styles.theirMessageTime]}>{formatTime(item.timestamp)}</Text>
-            {isMine && <View style={styles.statusIcon}>{renderMessageStatus(item.status)}</View>}
+            {/* {isMine && <View style={styles.statusIcon}>{renderMessageStatus(item.status)}</View>} */}
           </View>
         </View>
       </View>
@@ -576,7 +599,7 @@ export default function ChatScreen({ route }) {
                 inverted
                 keyExtractor={(item) => item.id}
                 renderItem={renderMessage}
-                ListFooterComponent={renderTypingIndicator}
+                ListHeaderComponent={renderTypingIndicator}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
                   styles.messagesList,
@@ -591,56 +614,56 @@ export default function ChatScreen({ route }) {
 
 
             )}
-      </View>
-      <View
-        style={[
-          styles.inputContainer,
-          {
-            paddingBottom:
-              Platform.OS === "ios"
-                ? Math.max(insets.bottom, 12)
-                : Math.max(insets.bottom, 90),
-          },
-        ]}
-      >
-        <View style={styles.inputShadow}>
-          <View style={styles.inputWrapper}>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  sessionEnded
-                    ? "Your session has ended"
-                    : isWithinTime
-                      ? "Type your message..."
-                      : "Chat will be enabled in your session"
-                }
-                placeholderTextColor="#9CA3AF"
-                value={inputText}
-                onChangeText={isWithinTime && !sessionEnded ? handleTyping : undefined}
-                editable={isWithinTime && !sessionEnded}
-                multiline
-                scrollEnabled
-                textAlignVertical="top"
-                maxLength={1000}
-              />
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!inputText.trim() || !isWithinTime || sessionEnded) &&
-                styles.sendButtonDisabled
-              ]}
-              onPress={handleSendMessage}
-              disabled={!inputText.trim() || !isWithinTime || sessionEnded}
-            >
-
-              <Icon name="send" size={moderateScale(20)} color="#fff" />
-            </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                paddingBottom:
+                  Platform.OS === "ios"
+                    ? Math.max(insets.bottom, 12)
+                    : Math.max(insets.bottom, 60),
+              },
+            ]}
+          >
+            <View style={styles.inputShadow}>
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={
+                      sessionEnded
+                        ? "Your session has ended"
+                        : isWithinTime
+                          ? "Type your message..."
+                          : "Chat will be enabled in your session"
+                    }
+                    placeholderTextColor="#9CA3AF"
+                    value={inputText}
+                    onChangeText={isWithinTime && !sessionEnded ? handleTyping : undefined}
+                    editable={isWithinTime && !sessionEnded}
+                    multiline
+                    scrollEnabled
+                    textAlignVertical="top"
+                    maxLength={1000}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    (!inputText.trim() || !isWithinTime || sessionEnded) &&
+                    styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSendMessage}
+                  disabled={!inputText.trim() || !isWithinTime || sessionEnded}
+                >
+
+                  <Icon name="send" size={moderateScale(20)} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </View >
     </SafeAreaView >
   );
@@ -905,8 +928,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     backgroundColor: "#fff",
     paddingHorizontal: scale(12),
-    paddingTop: verticalScale(8),
-    paddingBottom: Platform.OS === "ios" ? verticalScale(8) : verticalScale(10),
+    paddingTop: verticalScale(6),
+    paddingBottom: Platform.OS === "ios" ? verticalScale(8) : verticalScale(6),
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB"
   },

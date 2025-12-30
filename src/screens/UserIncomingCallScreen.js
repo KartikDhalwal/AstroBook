@@ -27,6 +27,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Config from "../agoraconfig";
 import api from "../apiConfig";
 import IMAGE_BASE_URL from "../imageConfig";
+import InCallManager from 'react-native-incall-manager';
+
 import { initSocket, getSocket } from "../services/socket";
 const { width, height } = Dimensions.get("window");
 
@@ -174,15 +176,13 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
                 onJoinChannelSuccess: () => {
                     setIsJoined(true);
 
-                    if (Platform.OS === "android") {
-                        if (isVideoEnabled) {
-                            agoraEngine.setEnableSpeakerphone(true);
-                            setIsSpeakerOn(true);
-                        } else {
-                            agoraEngine.setEnableSpeakerphone(false);
-                            setIsSpeakerOn(false);
-                        }
-                    }
+                    InCallManager.start({
+                        media: isVideoEnabled ? 'video' : 'audio',
+                      });
+                    
+                      InCallManager.setForceSpeakerphoneOn(isVideoEnabled);
+                    
+                      setIsSpeakerOn(isVideoEnabled);
                 },
 
 
@@ -273,6 +273,9 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
         if (isCleaningUp.current) return;
         isCleaningUp.current = true;
 
+        try {
+            InCallManager.stop(); // 🔥 REQUIRED
+          } catch (e) {}
         leaveChannel();
 
         navigation.reset({
@@ -315,18 +318,12 @@ const UserIncomingCallScreen = ({ navigation, route }) => {
         setIsMuted(!isMuted);
     };
 
-    const toggleSpeaker = async () => {
-        if (!agoraEngine) return;
-
-        const next = !isSpeakerOn;
-
-        try {
-            await agoraEngine.setEnableSpeakerphone(next);
-            setIsSpeakerOn(next);
-        } catch (e) {
-            console.warn("Speaker toggle failed", e);
-        }
-    };
+    const toggleSpeaker = () => {
+        const enable = !isSpeakerOn;
+        InCallManager.setForceSpeakerphoneOn(enable);
+        setIsSpeakerOn(enable);
+      };
+      
 
 
 

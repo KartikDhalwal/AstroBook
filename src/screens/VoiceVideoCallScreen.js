@@ -24,6 +24,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Config from '../agoraconfig'; // keep appId here or override from server
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../apiConfig';
+import KeepAwake from 'react-native-keep-awake';
 
 let agoraEngine;
 
@@ -46,7 +47,16 @@ export default function VoiceVideoCallScreen({ navigation, route }) {
   };
 
   const requestedChannel = route?.params?.channelName || null; // optional
-
+  useEffect(() => {
+    // 🔥 Keep phone awake during call
+    KeepAwake.activate();
+  
+    return () => {
+      // 😴 Allow phone to sleep after call
+      KeepAwake.deactivate();
+    };
+  }, []);
+  
   // Request mic + camera permissions
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {

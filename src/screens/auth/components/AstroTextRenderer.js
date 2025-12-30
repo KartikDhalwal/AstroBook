@@ -1,50 +1,32 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 
-const styles = {
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#7F1D1D",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  body: {
-    fontSize: 14,
-    color: "#374151",
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-};
-export const parseAstroHTML = (html = "") => {
+const parseAstroHTML = (html = "") => {
   if (!html) return [];
 
-  let clean = html
+  const cleanText = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
-    .replace(/<\/h[45]>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "") // remove ALL tags
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<li>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  const blocks = clean.split("\n\n");
+  return cleanText.split("\n\n").map(text => {
+    const t = text.trim();
 
-  return blocks.map(text => {
-    if (text.length < 40 && text === text.toUpperCase()) {
-      return { type: "title", text };
+    if (t.length < 50 && t === t.toUpperCase()) {
+      return { type: "title", text: t };
     }
 
-    if (text.length < 60) {
-      return { type: "subtitle", text };
+    if (t.length < 70) {
+      return { type: "subtitle", text: t };
     }
 
-    return { type: "body", text };
+    return { type: "body", text: t };
   });
 };
 
@@ -53,12 +35,13 @@ const AstroTextRenderer = ({ html }) => {
 
   return (
     <View>
-      {blocks.map((b, i) => (
+      {blocks.map((block, index) => (
         <Text
-          key={`${b.type}-${i}`}
-          style={styles[b.type]}
+          key={`${block.type}-${index}`}
+          style={styles[block.type]}
+          allowFontScaling
         >
-          {b.text}
+          {block.text}
         </Text>
       ))}
     </View>
@@ -66,3 +49,26 @@ const AstroTextRenderer = ({ html }) => {
 };
 
 export default AstroTextRenderer;
+
+const styles = StyleSheet.create({
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#7F1D1D",
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  body: {
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+});

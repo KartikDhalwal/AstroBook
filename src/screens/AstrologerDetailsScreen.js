@@ -10,6 +10,7 @@ import {
   FlatList,
   Dimensions,
   Linking,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -143,31 +144,20 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
 
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={[]}>
-
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F8F4EF"
+        translucent={false}
+      />
       <View style={styles.container}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: spacing(120) + insets.bottom },
+            { paddingBottom: spacing(80) + Math.max(insets.bottom, 16) },
           ]}
-
         >
-          {/* Header */}
-          {/* <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Icon name="arrow-left" size={26} color="#db9a4a" />
-          </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
-            {astrologer.astrologerName}
-          </Text>
-          <View style={{ width: 40 }} />
-        </View> */}
-
           {/* Profile Card */}
           <View style={styles.profileCard}>
             <View style={styles.imageWrapper}>
@@ -195,9 +185,6 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
                 </Text>
               </View>
             </View>
-            {/* <Text style={styles.location}>
-            📍 {astrologer.city}, {astrologer.state}
-          </Text> */}
           </View>
 
           {/* Quick Info */}
@@ -316,7 +303,6 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
             </View>
           )}
           {/* Reviews Section */}
-          {/* Reviews Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reviews</Text>
 
@@ -396,20 +382,20 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
               </TouchableOpacity>
             </View>
           )}
-
-          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Sticky Buttons */}
         <View
           style={[
             styles.stickyContainer,
-            { paddingBottom: 12 + insets.bottom },
+            { 
+              paddingBottom: Math.max(insets.bottom , 16),
+              paddingLeft: Math.max(insets.left, 16),
+              paddingRight: Math.max(insets.right, 16),
+            },
           ]}
         >
-
           {mode === 'voice' ? (
-
             <TouchableOpacity
               style={[styles.actionButton, styles.voiceButton]}
               onPress={() =>
@@ -454,20 +440,19 @@ const AstrologerDetailsScreen = ({ route, navigation, }) => {
         </View>
       </View>
     </SafeAreaView>
-
   );
 };
 
 export default AstrologerDetailsScreen;
 
-// 🧾 STYLES (same as your base with minor cleanup)
+// 🧾 STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F4EF',
   },
   scrollContent: {
-    paddingBottom: spacing(120),
+    paddingTop: spacing(16),
   },
   header: {
     flexDirection: 'row',
@@ -497,7 +482,6 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginTop: 16,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -880,13 +864,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 12,          // 👈 split padding
+    paddingTop: 12,
     elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
     borderTopWidth: 1,
     borderTopColor: '#F0E8DC',
   },
-
 
   actionButton: {
     flex: 1,

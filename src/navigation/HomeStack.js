@@ -12,12 +12,12 @@ import KundliDetailScreen from '../screens/KundliDetailScreen';
 import ConsultationDetailsScreen from '../screens/ConsultationDetailsScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
 import BlogScreen from '../screens/BlogScreen';
-import ChatScreen from '../screens/ChatScreen';
 import BlogDetailsScreen from '../screens/BlogDetailsScreen';
 import SignUp from '../screens/SignUp';
 import UserConsultationList from '../screens/UserConsultationList';
 import BookedPoojaListScreen from '../screens/BookedPoojaListScreen';
 import CartScreen from '../screens/CartScreen';
+import AstrologerDetailsScreen from '../screens/AstrologerDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -31,7 +31,11 @@ export default function HomeStack() {
 
       }}
     >
-
+      <Stack.Screen
+        name="AstrologerDetailsScreen"
+        component={AstrologerDetailsScreen}
+        options={{ headerShown: true, title: "Astrologers Details" }}
+      />
       {/* HOME screen (header hidden) */}
       <Stack.Screen
         name="HomeMain"
@@ -74,7 +78,7 @@ export default function HomeStack() {
         component={CartScreen}
         options={{ headerShown: true, title: 'Pooja Cart' }}
       />
-      
+
     </Stack.Navigator>
   );
 }

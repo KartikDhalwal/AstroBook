@@ -10,6 +10,7 @@ import SignUp from "../screens/SignUp";
 import UserConsultationList from "../screens/UserConsultationList";
 import CartScreen from "../screens/CartScreen";
 import PoojaDetails from "../screens/PoojaDetails";
+import AstrologerDetailsScreen from "../screens/AstrologerDetailsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -57,7 +58,11 @@ export default function ChatStack() {
         component={PoojaDetails}
         options={{ headerShown: true, title: 'Pooja Details' }}
       />
-
+<Stack.Screen
+          name="AstrologerDetailsScreen"
+          component={AstrologerDetailsScreen}
+          options={{ headerShown: true, title: "Astrologers Details" }}
+        />
 
     </Stack.Navigator>
   );

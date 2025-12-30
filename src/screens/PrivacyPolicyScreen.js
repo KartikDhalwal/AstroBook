@@ -1,43 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import axios from "axios";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AstroTextRenderer from "./auth/components/AstroTextRenderer";
-import api from '../apiConfig';
-
-// Custom HTML stripper
-const stripHTML = (html) => {
-  if (!html) return "No data available.";
-
-  return html
-    .replace(/<\/h2>/gi, "\n\n")
-    .replace(/<\/h3>/gi, "\n\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<ul>/gi, "")
-    .replace(/<\/ul>/gi, "")
-    .replace(/<ol>/gi, "")
-    .replace(/<\/ol>/gi, "")
-    .replace(/<li>/gi, "• ")
-    .replace(/<strong>/gi, "")
-    .replace(/<\/strong>/gi, "")
-    .replace(/<[^>]+>/g, "")       // Remove all tags
-    .replace(/&nbsp;/g, " ")
-    .replace(/\n\s*\n\s*\n/g, "\n\n")
-    .trim();
-};
+import api from "../apiConfig";
 
 const PrivacyPolicyScreen = () => {
-  const [policy, setPolicy] = useState("");
+  const [policyHTML, setPolicyHTML] = useState("");
   const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
 
   const fetchPolicy = async () => {
     try {
@@ -45,11 +21,12 @@ const PrivacyPolicyScreen = () => {
         `${api}/admin/get-privacy-policy`
       );
 
-      const html = response.data?.privacyPolicy?.description || "";
-      setPolicy(stripHTML(html));
+      setPolicyHTML(
+        response?.data?.privacyPolicy?.description || ""
+      );
     } catch (err) {
-      console.log("Error fetching privacy policy:", err);
-      setPolicy("Failed to load privacy policy.");
+      console.log("Privacy policy fetch error:", err);
+      setPolicyHTML("<p>Failed to load privacy policy.</p>");
     } finally {
       setLoading(false);
     }
@@ -60,8 +37,22 @@ const PrivacyPolicyScreen = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FDF7EE"
+        translucent={false}
+      />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         {loading ? (
           <ActivityIndicator
             size="large"
@@ -69,13 +60,8 @@ const PrivacyPolicyScreen = () => {
             style={{ marginTop: 40 }}
           />
         ) : (
-          <AstroTextRenderer html={policy}/>
-          // <View style={styles.textCard}>
-          //   <Text style={styles.policyText}>{policy}</Text>
-          // </View>
+          <AstroTextRenderer html={policyHTML} />
         )}
-
-        <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -84,32 +70,12 @@ const PrivacyPolicyScreen = () => {
 export default PrivacyPolicyScreen;
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: "#FDF7EE",
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 2,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginLeft: 10,
-    color: "#1A1A1A",
-  },
-  textCard: {
-    backgroundColor: "#FFF8ED",
-    padding: 16,
-    borderRadius: 12,
-    elevation: 1,
-  },
-  policyText: {
-    color: "#333",
-    fontSize: 14.5,
-    lineHeight: 24,
+    paddingTop: 16,
   },
 });

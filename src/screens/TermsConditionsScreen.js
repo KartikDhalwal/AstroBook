@@ -1,44 +1,21 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
+  Platform,
 } from "react-native";
 import axios from "axios";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AstroTextRenderer from "./auth/components/AstroTextRenderer";
-import api from '../apiConfig';
-
-
-// Custom HTML stripper (enhanced for headings/lists)
-const stripHTML = (html) => {
-  if (!html) return "No data available.";
-
-  return html
-    .replace(/<\/h2>/gi, "\n\n")
-    .replace(/<\/h3>/gi, "\n\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<ul>/gi, "")
-    .replace(/<\/ul>/gi, "")
-    .replace(/<ol>/gi, "")
-    .replace(/<\/ol>/gi, "")
-    .replace(/<li>/gi, "• ")
-    .replace(/<strong>/gi, "")
-    .replace(/<\/strong>/gi, "")
-    .replace(/<[^>]+>/g, "") // remove all tags
-    .replace(/&nbsp;/g, " ")
-    .replace(/\n\s*\n\s*\n/g, "\n\n")
-    .trim();
-};
+import api from "../apiConfig";
 
 const TermsConditionsScreen = () => {
-  const [terms, setTerms] = useState("");
+  const [termsHTML, setTermsHTML] = useState("");
   const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
 
   const fetchTerms = async () => {
     try {
@@ -48,11 +25,12 @@ const TermsConditionsScreen = () => {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      const html = response.data?.termsAndCondition?.description || "";
-      setTerms(stripHTML(html));
-    } catch (error) {
-      console.log("Error fetching terms:", error);
-      setTerms("Failed to load terms & conditions.");
+      setTermsHTML(
+        response?.data?.termsAndCondition?.description || ""
+      );
+    } catch (err) {
+      console.log("Terms fetch error:", err);
+      setTermsHTML("<p>Failed to load terms & conditions.</p>");
     } finally {
       setLoading(false);
     }
@@ -63,19 +41,31 @@ const TermsConditionsScreen = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FDF7EE"
+        translucent={false}
+      />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+      >
         {loading ? (
           <ActivityIndicator
             size="large"
             color="#db9a4a"
-            style={{ marginTop: 2 }}
+            style={{ marginTop: 40 }}
           />
         ) : (
-            <AstroTextRenderer html={terms}/>
+          <AstroTextRenderer html={termsHTML} />
         )}
-
-        <View style={{ height: 10 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -84,33 +74,12 @@ const TermsConditionsScreen = () => {
 export default TermsConditionsScreen;
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: "#FDF7EE",
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: -4,
-  },
-  header: {
-    backgroundColor: "#FDF7EE",
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginLeft: 10,
-    color: "#1A1A1A",
-  },
-  textCard: {
-    backgroundColor: "#FFF8ED",
-    padding: 4,
-    borderRadius: 12,
-    elevation: 1,
-  },
-  text: {
-    fontSize: 14.5,
-    color: "#333",
-    lineHeight: 24,
+    paddingTop: 16,
   },
 });
